@@ -1,0 +1,131 @@
+================================================================================
+    VISION DJANGO APP - COMPLETE SETUP AND RUN GUIDE
+================================================================================
+
+IMPORTANT: You MUST be in the 'vision_django_app' directory to run commands!
+
+================================================================================
+METHOD 1: EASIEST - Double Click the Batch File
+================================================================================
+
+1. Navigate to: vision_django_app folder
+2. Double-click: run_app.bat
+3. Wait for server to start
+4. Open browser: http://127.0.0.1:8000/
+
+================================================================================
+METHOD 2: PowerShell Script (Recommended)
+================================================================================
+
+1. Open PowerShell
+2. Navigate to vision_django_app folder:
+   cd "C:\Users\abhiy\OneDrive\Documents\yazhi\Project\HDA\Sync-Screen(1)\vision_django_app"
+
+3. If you get execution policy error, run this first:
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+
+4. Run the script:
+   .\run_app.ps1
+
+================================================================================
+METHOD 3: Manual Step-by-Step (If scripts don't work)
+================================================================================
+
+STEP 1: Open PowerShell or Command Prompt
+
+STEP 2: Navigate to the correct directory:
+   cd "C:\Users\abhiy\OneDrive\Documents\yazhi\Project\HDA\Sync-Screen(1)\vision_django_app"
+
+STEP 3: Activate Virtual Environment
+
+   For PowerShell:
+   .\venv311\Scripts\Activate.ps1
+
+   For Command Prompt (CMD):
+   venv311\Scripts\activate.bat
+
+   You should see (venv311) in your prompt after activation.
+
+STEP 4: Verify Mediapipe is installed:
+   python -c "import mediapipe; print('Mediapipe OK')"
+
+   If you see "ModuleNotFoundError", install it:
+   pip install mediapipe==0.10.14
+
+STEP 5: Run Database Migrations (if needed):
+   python manage.py migrate
+
+STEP 6: Start the Server:
+   python manage.py runserver
+
+STEP 7: Open Browser:
+   Go to: http://127.0.0.1:8000/
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+ERROR: "The term '.\venv311\Scripts\Activate.ps1' is not recognized"
+SOLUTION: You're in the wrong directory! Make sure you're in 'vision_django_app' folder.
+   Check your current directory: pwd (PowerShell) or cd (CMD)
+   Navigate: cd vision_django_app
+
+ERROR: "ModuleNotFoundError: No module named 'mediapipe'"
+SOLUTION: 
+   1. Make sure virtual environment is activated (you should see (venv311))
+   2. Install mediapipe: pip install mediapipe==0.10.14
+
+ERROR: "Execution Policy" error in PowerShell
+SOLUTION: Run this command first:
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+
+ERROR: "ModuleNotFoundError: No module named 'django'"
+SOLUTION: Virtual environment not activated! Activate it first.
+
+ERROR: "Mediapipe not installed" in web interface
+SOLUTION: 
+   1. Stop the server (Ctrl+C)
+   2. Activate virtual environment
+   3. Install: pip install mediapipe==0.10.14
+   4. Restart server: python manage.py runserver
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+Before running, verify:
+✓ You're in vision_django_app directory
+✓ Virtual environment is activated (see (venv311) in prompt)
+✓ Django is installed: python -c "import django; print('OK')"
+✓ Mediapipe is installed: python -c "import mediapipe; print('OK')"
+✓ Database migrated: python manage.py migrate
+
+================================================================================
+QUICK COMMAND REFERENCE
+================================================================================
+
+# Navigate to project
+cd "C:\Users\abhiy\OneDrive\Documents\yazhi\Project\HDA\Sync-Screen(1)\vision_django_app"
+
+# Activate virtual environment (PowerShell)
+.\venv311\Scripts\Activate.ps1
+
+# Activate virtual environment (CMD)
+venv311\Scripts\activate.bat
+
+# Install mediapipe (if missing)
+pip install mediapipe==0.10.14
+
+# Run migrations
+python manage.py migrate
+
+# Start server
+python manage.py runserver
+
+# Stop server
+Press Ctrl+C
+
+================================================================================
+END OF GUIDE
+================================================================================
+

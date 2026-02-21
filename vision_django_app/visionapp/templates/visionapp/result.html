@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vision Test Results</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      background: #28a745;
+      color: white;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      margin: 30px auto;
+      border-radius: 10px;
+      max-width: 700px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    p {
+      font-size: 18px;
+      margin: 10px 0;
+    }
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    em {
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Your Vision Test Results</h1>
+
+  <div class="container">
+    <p><strong>Left Eye:</strong> Visual Acuity = {{ v_left }} → Approx Diopter = {{ d_left }} D</p>
+    <p><strong>Right Eye:</strong> Visual Acuity = {{ v_right }} → Approx Diopter = {{ d_right }} D</p>
+
+    <h3>Recommended Adjustments</h3>
+    <p>Left Eye — Font ×{{ rec_left.font_mult }}, Spacing: {{ rec_left.letter_spacing }} px, Brightness ×{{ rec_left.brightness_mult }}</p>
+    <p>Right Eye — Font ×{{ rec_right.font_mult }}, Spacing: {{ rec_right.letter_spacing }} px, Brightness ×{{ rec_right.brightness_mult }}</p>
+
+    {% if adjusted_url %}
+      <p><strong> Adjusted File Ready:</strong> <a href="{{ adjusted_url }}">Download Adjusted Document</a></p>
+    {% endif %}
+
+    <p><em>This is a demo application. Please consult a licensed optometrist for an accurate prescription.</em></p>
+    <form action="{% url 'index' %}">
+      <button type="submit">Back to Test</button>
+    </form>
+  </div>
+</body>
+</html>

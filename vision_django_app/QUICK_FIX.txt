@@ -1,0 +1,56 @@
+================================================================================
+QUICK FIX FOR "MEDIAPIPE NOT INSTALLED" ERROR
+================================================================================
+
+THE PROBLEM:
+Your Django server is running with the WRONG Python environment.
+Mediapipe IS installed, but the server can't see it.
+
+THE SOLUTION:
+1. STOP the server (Ctrl+C in the terminal where it's running)
+2. Make sure you're in vision_django_app folder
+3. Activate virtual environment
+4. Restart server
+
+================================================================================
+STEP-BY-STEP FIX (Copy & Paste)
+================================================================================
+
+# Step 1: Navigate to correct folder
+cd "C:\Users\abhiy\OneDrive\Documents\yazhi\Project\HDA\Sync-Screen(1)\vision_django_app"
+
+# Step 2: Activate virtual environment
+.\venv311\Scripts\Activate.ps1
+
+# Step 3: Verify mediapipe (should show version)
+python -c "import mediapipe; print('Mediapipe:', mediapipe.__version__)"
+
+# Step 4: Start server
+python manage.py runserver
+
+================================================================================
+OR USE THE AUTOMATED SCRIPT
+================================================================================
+
+Double-click: stop_and_restart.ps1
+
+OR run in PowerShell:
+.\stop_and_restart.ps1
+
+This will:
+- Stop all Python processes
+- Activate correct virtual environment  
+- Verify mediapipe
+- Start server properly
+
+================================================================================
+VERIFICATION
+================================================================================
+
+After restarting, check:
+1. Server terminal shows Python path with "venv311" in it
+2. Browser shows webcam feed (not "Mediapipe not installed")
+3. Face detection works in Eye-to-Screen section
+
+================================================================================
+

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="../static/css/upload.css">
+    <style>
+        body[data-theme="dark"] {
+            background-color: #121212;
+            color: #f8f9fa;
+        }
+        body[data-theme="dark"] .navbar {
+            background-color: #000 !important;
+        }
+        body[data-theme="dark"] .upload-container,
+        body[data-theme="dark"] .border-container,
+        body[data-theme="dark"] .card {
+            background-color: #1f1f1f !important;
+            color: #f8f9fa;
+        }
+        body[data-theme="dark"] .alert-info {
+            background-color: #1b2838;
+            color: #d1e7ff;
+        }
+        body[data-theme="dark"] .btn.btn-success,
+        body[data-theme="dark"] .btn.btn-primary {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
+        }
+    </style>
+    <title>👁 Vision Test | Home</title>
+</head>
+
+<body>
+    <!-- Standard Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark" style="padding: 0.5rem 1rem;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'index' %}" style="padding: 0;">
+                <img width="120px" src="../static/assets/logoWhite.png" alt="Vision Logo" style="height: auto;">
+            </a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav align-items-center" style="margin: 0;">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item" style="margin-right: 15px;">
+                        <div class="d-flex align-items-center" style="color: white; gap: 8px;">
+                            <i class="fa fa-user-circle" style="font-size: 1rem;"></i>
+                            <span style="font-size: 0.9rem; white-space: nowrap;">{{ user.username|truncatechars:20 }}</span>
+                        </div>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item" style="margin-right: 10px;">
+                        <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button">
+                            Dark mode
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'logout' %}" style="background-color: #dc3545; color: white !important; padding: 0.4rem 1rem; border-radius: 4px; margin-left: 0.5rem; font-weight: 500;">
+                            <i class="fa fa-sign-out"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-6 mx-auto">
+                <div class="wrapper">
+                    <div class="upload-container text-center">
+                        <div class="border-container p-4">
+                            <h4 class="mb-3"><i class="fas fa-eye"></i> Welcome to Vision AI Test</h4>
+                            
+                            {% if has_previous_data %}
+                            <div class="alert alert-info mb-3" style="font-size: 0.9rem; padding: 0.75rem;">
+                                <i class="fas fa-info-circle"></i> <strong>You have previous vision test data!</strong>
+                                <br>Left Eye: V={{ previous_data.left_v }}, Diopter={{ previous_data.left_d }}
+                                <br>Right Eye: V={{ previous_data.right_v }}, Diopter={{ previous_data.right_d }}
+                                <br><small>Screen brightness has been adjusted based on your eye power.</small>
+                            </div>
+                            {% endif %}
+                            
+                            <p style="color: black; font-size: 0.95rem; margin-bottom: 1.5rem;">
+                                This test evaluates your left and right eye vision using professional optotype charts.
+                                Ensure you are seated about <strong>3 meters</strong> away from the screen before starting.
+                            </p>
+
+                            <div class="icons fa-3x mb-3" style="opacity: 0.7;">
+                                <i class="fas fa-glasses m-2"></i>
+                                <i class="fas fa-eye m-2"></i>
+                                <i class="fas fa-laptop m-2"></i>
+                            </div>
+
+                            <!-- Voice Input for Eye Power -->
+                            <div class="card mb-3" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                                <div class="card-body" style="padding: 1rem;">
+                                    <h6 class="card-title mb-2" style="font-size: 0.95rem;"><i class="fas fa-microphone-alt"></i> Set Eye Power via Voice</h6>
+                                    <p class="card-text mb-2" style="font-size: 0.85rem; color: #666;">
+                                        Speak your eye power value (e.g., "zero point one" for 0.1) to automatically adjust screen brightness.
+                                    </p>
+                                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                        <button id="powerVoiceBtn" class="btn btn-info btn-sm" style="font-size: 0.85rem;">
+                                            <i class="fas fa-microphone"></i> Speak Power Value
+                                        </button>
+                                        <button id="stopPowerVoiceBtn" class="btn btn-danger btn-sm" style="display:none; font-size: 0.85rem;">
+                                            <i class="fas fa-stop"></i> Stop
+                                        </button>
+                                    </div>
+                                    <p id="powerVoiceStatus" class="text-muted mt-2 mb-0" style="font-size: 0.8rem;"></p>
+                                    <input type="hidden" id="voicePowerValue" value="">
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-column gap-2">
+                                <a href="{% url 'start_test_page' %}" class="submitDoc btn btn-success w-100" onclick="return true;">
+                                    <i class="fas fa-play-circle"></i> 
+                                    {% if has_previous_data %}
+                                        Retake Vision Test
+                                    {% else %}
+                                        Start Vision Test
+                                    {% endif %}
+                                </a>
+                                
+                                {% if has_previous_data %}
+                                <a href="{% url 'final_result' %}?left_v={{ previous_data.left_v }}&right_v={{ previous_data.right_v }}&left_d={{ previous_data.left_d }}&right_d={{ previous_data.right_d }}&from_login=true" class="btn btn-primary w-100">
+                                    <i class="fas fa-file-upload"></i> Use Previous Test Data & Upload Document
+                                </a>
+                                <a href="{% url 'export_results' %}?format=pdf&left_v={{ previous_data.left_v }}&right_v={{ previous_data.right_v }}&left_d={{ previous_data.left_d }}&right_d={{ previous_data.right_d }}" class="btn btn-outline-secondary w-100" target="_blank">
+                                    <i class="fas fa-file-pdf"></i> Download Vision Summary (PDF)
+                                </a>
+                                <a href="{% url 'export_results' %}?format=excel&left_v={{ previous_data.left_v }}&right_v={{ previous_data.right_v }}&left_d={{ previous_data.left_d }}&right_d={{ previous_data.right_d }}" class="btn btn-outline-secondary w-100">
+                                    <i class="fas fa-file-excel"></i> Download Vision Summary (Excel/CSV)
+                                </a>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-3" style="font-size: 0.85rem; color: #666;">
+                                <p class="mb-0"><i class="fas fa-info-circle"></i> Tip: Make sure your lighting is comfortable and your webcam is enabled.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <footer class="text-center mt-4" style="font-size: 0.85rem; color: #666;">
+                    <p class="mb-0">© 2025 Vision AI | Designed for Smarter Eye Health</p>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/js/all.min.js"></script>
+
+    <script>
+        // Theme toggle (light/dark) with persistence
+        (function () {
+            const btn = document.getElementById('themeToggle');
+            if (!btn) return;
+            const applyTheme = (theme) => {
+                document.body.setAttribute('data-theme', theme);
+                btn.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+            };
+            const stored = localStorage.getItem('visionTheme') || 'light';
+            applyTheme(stored);
+            btn.addEventListener('click', () => {
+                const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('visionTheme', next);
+                applyTheme(next);
+            });
+        })();
+
+        let powerRecognition = null;
+        let isPowerListening = false;
+
+        // Initialize Speech Recognition for Power Value
+        function initPowerSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                powerRecognition = new SpeechRecognition();
+                powerRecognition.continuous = false;
+                powerRecognition.interimResults = false;
+                powerRecognition.lang = 'en-US';
+
+                powerRecognition.onstart = function() {
+                    isPowerListening = true;
+                    document.getElementById('powerVoiceBtn').style.display = 'none';
+                    document.getElementById('stopPowerVoiceBtn').style.display = 'inline-block';
+                    document.getElementById('powerVoiceStatus').textContent = '🎤 Listening... Speak your eye power value (e.g., "zero point one").';
+                    document.getElementById('powerVoiceStatus').style.color = '#28a745';
+                };
+
+                powerRecognition.onresult = function(event) {
+                    const spokenText = event.results[0][0].transcript.trim().toLowerCase();
+                    document.getElementById('powerVoiceStatus').textContent = `You said: "${spokenText}"`;
+                    
+                    // Convert spoken text to number
+                    const powerValue = parseSpokenNumber(spokenText);
+                    
+                    if (powerValue !== null && powerValue >= 0 && powerValue <= 5) {
+                        document.getElementById('voicePowerValue').value = powerValue;
+                        document.getElementById('powerVoiceStatus').textContent = `✅ Power value set to: ${powerValue}. Adjusting brightness...`;
+                        document.getElementById('powerVoiceStatus').style.color = '#28a745';
+                        
+                        // Send to backend to adjust brightness
+                        adjustBrightnessFromVoice(powerValue);
+                    } else {
+                        document.getElementById('powerVoiceStatus').textContent = `Could not parse "${spokenText}". Please say a number like "zero point one" or "point five".`;
+                        document.getElementById('powerVoiceStatus').style.color = '#dc3545';
+                    }
+                };
+
+                powerRecognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    document.getElementById('powerVoiceStatus').textContent = `Error: ${event.error}. Please try again.`;
+                    document.getElementById('powerVoiceStatus').style.color = '#dc3545';
+                    stopPowerListening();
+                };
+
+                powerRecognition.onend = function() {
+                    stopPowerListening();
+                };
+            } else {
+                document.getElementById('powerVoiceBtn').style.display = 'none';
+                document.getElementById('powerVoiceStatus').textContent = 'Voice recognition not supported in your browser.';
+                document.getElementById('powerVoiceStatus').style.color = '#dc3545';
+            }
+        }
+
+        // Parse spoken number to actual number
+        function parseSpokenNumber(text) {
+            // Remove common filler words
+            text = text.replace(/please|set|power|value|eye/gi, '').trim();
+            
+            // Handle decimal numbers
+            const decimalPatterns = [
+                /zero\s*point\s*(\d+)/i,
+                /point\s*(\d+)/i,
+                /(\d+)\s*point\s*(\d+)/i,
+                /(\d+)\s*\.\s*(\d+)/i
+            ];
+            
+            for (let pattern of decimalPatterns) {
+                const match = text.match(pattern);
+                if (match) {
+                    if (match[2]) {
+                        // Full number like "one point five"
+                        return parseFloat(match[1] + '.' + match[2]);
+                    } else {
+                        // Decimal like "point five" or "zero point five"
+                        return parseFloat('0.' + match[1]);
+                    }
+                }
+            }
+            
+            // Handle whole numbers
+            const wholeNumberPattern = /(\d+)/i;
+            const wholeMatch = text.match(wholeNumberPattern);
+            if (wholeMatch) {
+                return parseFloat(wholeMatch[1]);
+            }
+            
+            // Handle word numbers
+            const wordNumbers = {
+                'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+            };
+            
+            for (let word in wordNumbers) {
+                if (text.includes(word)) {
+                    return wordNumbers[word];
+                }
+            }
+            
+            return null;
+        }
+
+        function startPowerListening() {
+            if (powerRecognition && !isPowerListening) {
+                try {
+                    powerRecognition.start();
+                } catch (e) {
+                    console.error('Error starting recognition:', e);
+                }
+            }
+        }
+
+        function stopPowerListening() {
+            if (powerRecognition && isPowerListening) {
+                powerRecognition.stop();
+                isPowerListening = false;
+                document.getElementById('powerVoiceBtn').style.display = 'inline-block';
+                document.getElementById('stopPowerVoiceBtn').style.display = 'none';
+            }
+        }
+
+        // Send power value to backend for brightness adjustment
+        async function adjustBrightnessFromVoice(powerValue) {
+            try {
+                const formData = new FormData();
+                formData.append('power_value', powerValue);
+                
+                const response = await fetch('/set_brightness_from_voice/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('powerVoiceStatus').textContent = `✅ Brightness adjusted to ${data.brightness}% based on power value ${powerValue}`;
+                    document.getElementById('powerVoiceStatus').style.color = '#28a745';
+                } else {
+                    document.getElementById('powerVoiceStatus').textContent = `⚠️ ${data.message || 'Could not adjust brightness'}`;
+                    document.getElementById('powerVoiceStatus').style.color = '#ffc107';
+                }
+            } catch (error) {
+                console.error('Error adjusting brightness:', error);
+                document.getElementById('powerVoiceStatus').textContent = '⚠️ Error connecting to server.';
+                document.getElementById('powerVoiceStatus').style.color = '#dc3545';
+            }
+        }
+
+        // Get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initPowerSpeechRecognition();
+            document.getElementById('powerVoiceBtn').onclick = () => startPowerListening();
+            document.getElementById('stopPowerVoiceBtn').onclick = () => stopPowerListening();
+        });
+    </script>
+</body>
+</html>

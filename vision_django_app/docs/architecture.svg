@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <style>
+    .box { fill:#f7f9fc; stroke:#2b6cb0; stroke-width:2; rx:8; }
+    .title { font: bold 16px sans-serif; fill:#172554; }
+    .label { font: 14px sans-serif; fill:#0f172a; }
+    .small { font: 12px sans-serif; fill:#0f172a; }
+    .arrow { stroke:#2b6cb0; stroke-width:2; marker-end: url(#arrowhead); fill:none }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2b6cb0" />
+    </marker>
+  </defs>
+
+  <!-- Browser / User -->
+  <rect x="40" y="40" width="200" height="70" class="box"/>
+  <text x="140" y="70" text-anchor="middle" class="title">User / Browser</text>
+  <text x="140" y="90" text-anchor="middle" class="small">HTML, JS, MJPEG</text>
+
+  <!-- Frontend -->
+  <rect x="300" y="40" width="260" height="90" class="box"/>
+  <text x="430" y="70" text-anchor="middle" class="title">Frontend (Django Templates)</text>
+  <text x="430" y="92" text-anchor="middle" class="small">Static, forms, uploads</text>
+
+  <!-- Django Backend -->
+  <rect x="620" y="30" width="520" height="140" class="box"/>
+  <text x="880" y="60" text-anchor="middle" class="title">Django Backend</text>
+  <text x="880" y="85" text-anchor="middle" class="label">views.py, urls.py, models.py</text>
+  <text x="880" y="105" text-anchor="middle" class="small">Routes: /, /video_feed/, /process_document/</text>
+
+  <!-- Vision Module -->
+  <rect x="80" y="170" width="320" height="160" class="box"/>
+  <text x="240" y="200" text-anchor="middle" class="title">Vision Processing</text>
+  <text x="240" y="225" text-anchor="middle" class="label">mediapipe, OpenCV</text>
+  <text x="240" y="245" text-anchor="middle" class="small">distance_calculator.py → face/eye landmarks</text>
+
+  <!-- Document Processor -->
+  <rect x="440" y="220" width="320" height="160" class="box"/>
+  <text x="600" y="250" text-anchor="middle" class="title">Document Processor</text>
+  <text x="600" y="275" text-anchor="middle" class="label">python-docx, pypdf, pdfplumber, reportlab</text>
+  <text x="600" y="295" text-anchor="middle" class="small">DOCX → text/visual; PDF scaling & extraction</text>
+
+  <!-- Background Worker (optional) -->
+  <rect x="780" y="220" width="300" height="120" class="box"/>
+  <text x="930" y="250" text-anchor="middle" class="title">Background Worker</text>
+  <text x="930" y="275" text-anchor="middle" class="label">Celery + Redis (optional)</text>
+  <text x="930" y="295" text-anchor="middle" class="small">Heavy tasks: conversion, inference</text>
+
+  <!-- DB and Storage -->
+  <rect x="80" y="370" width="340" height="100" class="box"/>
+  <text x="250" y="400" text-anchor="middle" class="title">Data & Storage</text>
+  <text x="250" y="425" text-anchor="middle" class="label">SQLite (dev) / PostgreSQL (prod)</text>
+  <text x="250" y="445" text-anchor="middle" class="small">Uploads, generated PDFs, charts</text>
+
+  <!-- Static / Media Storage -->
+  <rect x="460" y="370" width="320" height="100" class="box"/>
+  <text x="620" y="400" text-anchor="middle" class="title">Static & Media</text>
+  <text x="620" y="425" text-anchor="middle" class="label">visionapp/static/, visionapp/uploads/</text>
+
+  <!-- Deployment Options -->
+  <rect x="820" y="370" width="320" height="100" class="box"/>
+  <text x="980" y="400" text-anchor="middle" class="title">Deployment</text>
+  <text x="980" y="425" text-anchor="middle" class="label">Docker / Azure / AKS</text>
+  <text x="980" y="445" text-anchor="middle" class="small">Use short-path venv (Windows) for installs</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M240,110 L300,110" />
+  <path class="arrow" d="M560,110 L620,110" />
+  <path class="arrow" d="M420,200 L440,200" />
+  <path class="arrow" d="M420,310 L460,260" />
+  <path class="arrow" d="M760,160 L760,220" />
+  <path class="arrow" d="M420,370 L420,370 L420,370" />
+
+  <!-- Connections from Django to modules -->
+  <path class="arrow" d="M820,140 L660,240" />
+  <path class="arrow" d="M780,140 L940,260" />
+  <path class="arrow" d="M760,170 L760,370" />
+  <path class="arrow" d="M760,250 L600,370" />
+
+  <!-- DB arrows -->
+  <path class="arrow" d="M760,370 L540,370" />
+
+  <!-- Footer note -->
+  <text x="600" y="760" text-anchor="middle" class="small">Diagram: high-level architecture for vision_django_app — components, data flow and deployment notes</text>
+</svg>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="../static/css/upload.css">
+    <title>👁 Vision Test Results</title>
+</head>
+
+<body>
+    <!-- Standard Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark" style="padding: 0.5rem 1rem;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'index' %}" style="padding: 0;">
+                <img width="120px" src="../static/assets/logoWhite.png" alt="Vision Logo" style="height: auto;">
+            </a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav align-items-center" style="margin: 0;">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item" style="margin-right: 15px;">
+                        <div class="d-flex align-items-center" style="color: white; gap: 8px;">
+                            <i class="fa fa-user-circle" style="font-size: 1rem;"></i>
+                            <span style="font-size: 0.9rem; white-space: nowrap;">{{ user.username|truncatechars:20 }}</span>
+                        </div>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'logout' %}" style="background-color: #dc3545; color: white !important; padding: 0.4rem 1rem; border-radius: 4px; margin-left: 0.5rem; font-weight: 500;">
+                            <i class="fa fa-sign-out"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Results Container -->
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="text-center mb-3">
+                    <h3><i class="fas fa-eye"></i> Vision Test Results</h3>
+                    {% if from_login %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Using your previous vision test data. You can upload a document to adjust it for your eyes.
+                        </div>
+                    {% endif %}
+                    <p >{{ message }}</p>
+                </div>
+
+                <div class="wrapper">
+                    <div class="upload-container">
+                        <div class="border-container text-center">
+
+                            <!-- Eye Results -->
+                            <div class="mb-4">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h5 class="text-success"><i class="fas fa-eye"></i> Left Eye</h5>
+                                        <p>V = {{ left_v }} | Diopter = {{ left_d }}</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5 class="text-success"><i class="fas fa-eye"></i> Right Eye</h5>
+                                        <p>V = {{ right_v }} | Diopter = {{ right_d }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 justify-content-center mt-3 flex-wrap">
+                                <a href="{% url 'start_test_page' %}" class="btn btn-primary">
+                                    <i class="fas fa-redo"></i> Retake Vision Test
+                                </a>
+                                <a href="/export_results/?format=pdf&left_v={{ left_v }}&right_v={{ right_v }}&left_d={{ left_d }}&right_d={{ right_d }}" class="btn btn-danger" target="_blank">
+                                    <i class="fas fa-file-pdf"></i> Export PDF
+                                </a>
+                                <a href="/export_results/?format=excel&left_v={{ left_v }}&right_v={{ right_v }}&left_d={{ left_d }}&right_d={{ right_d }}" class="btn btn-success">
+                                    <i class="fas fa-file-excel"></i> Export Excel
+                                </a>
+                            </div>
+
+                            <!-- Upload Section -->
+                            <div class="mt-5">
+                                <h4 class="text-primary fw-bold mb-3">
+                                    <i class="fas fa-file-upload"></i> Upload a Document to Adjust for Your Eyes
+                                </h4>
+                                <p  style="color: black; margin-bottom: 20px">
+                                    Upload a text or image file to automatically enhance readability
+                                    according to your test results.
+                                </p>
+
+                                <form method="post" enctype="multipart/form-data" action="/process_document/">
+                                    {% csrf_token %}
+                                    <input type="file" name="document"
+                                           accept=".txt,.md,.png,.jpg,.jpeg,.docx"
+                                           class="form-control w-75 mx-auto mb-3" required>
+
+                                    <input type="hidden" name="left_v" value="{{ left_v }}">
+                                    <input type="hidden" name="right_v" value="{{ right_v }}">
+                                    <input type="hidden" name="left_d" value="{{ left_d }}">
+                                    <input type="hidden" name="right_d" value="{{ right_d }}">
+
+                                    <button type="submit" class="submitDoc btn btn-success mt-3 w-75">
+                                        <i class="fas fa-adjust"></i> Adjust Document for Readability
+                                    </button>
+                                </form>
+
+                                {% if adjusted_url %}
+                                <hr>
+                                <h5 class="mt-4 text-success">
+                                    <i class="fas fa-check-circle"></i> Adjusted Document Ready:
+                                </h5>
+                                <a href="{% url 'view_file' %}?file={{ adjusted_url|urlencode }}" target="_blank" class="btn btn-outline-primary mt-2 me-2">
+                                    <i class="fas fa-eye"></i> View File
+                                </a>
+                                <a href="{{ adjusted_url }}" download class="btn btn-outline-success mt-2">
+                                    <i class="fas fa-download"></i> Download File
+                                </a>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/js/all.min.js"></script>
+</body>
+</html>

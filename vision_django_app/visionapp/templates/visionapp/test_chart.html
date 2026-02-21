@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="../static/css/upload.css">
+    <!-- Preload chart images for faster loading -->
+    <link rel="preload" href="/static/charts/output1.png" as="image">
+    <link rel="preload" href="/static/charts/output2.png" as="image">
+    <link rel="preload" href="/static/charts/output3.png" as="image">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --card-bg: #f8f9fa;
+            --border-color: #dee2e6;
+        }
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #f8f9fa;
+            --card-bg: #1f1f1f;
+            --border-color: #444444;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        body[data-theme="dark"] {
+            background-color: #121212;
+            color: #f8f9fa;
+        }
+        body[data-theme="dark"] .navbar {
+            background-color: #000 !important;
+        }
+        body[data-theme="dark"] .border-container,
+        body[data-theme="dark"] .bg-dark {
+            background-color: #1f1f1f !important;
+        }
+        body[data-theme="dark"] .text-muted {
+            color: #bbbbbb !important;
+        }
+        body[data-theme="dark"] .btn-outline-primary {
+            border-color: #4a9eff;
+            color: #4a9eff;
+        }
+        body[data-theme="dark"] .btn-outline-primary:hover {
+            background-color: #4a9eff;
+            color: #000;
+        }
+        body[data-theme="dark"] .btn-info {
+            background-color: #17a2b8;
+            border-color: #17a2b8;
+        }
+        body[data-theme="dark"] .btn-danger {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+        body[data-theme="dark"] .bg-dark {
+            background-color: #1f1f1f !important;
+        }
+        body[data-theme="dark"] hr {
+            border-color: #444444;
+        }
+        /* Chart image loading optimization */
+        #chartImage {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            will-change: src;
+        }
+        .chart-loading {
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+        /* Pulse animation for voice recognition status */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        #voiceStatus {
+            font-weight: 500;
+            min-height: 24px;
+        }
+    </style>
+    <title> Vision Chart Test | Eye Distance Monitor</title>
+</head>
+
+<body>
+    <!-- Standard Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark" style="padding: 0.5rem 1rem;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'index' %}" style="padding: 0;">
+                <img width="120px" src="../static/assets/logoWhite.png" alt="Vision Test Logo" style="height: auto;">
+            </a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav align-items-center" style="margin: 0;">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item" style="margin-right: 15px;">
+                        <div class="d-flex align-items-center" style="color: white; gap: 8px;">
+                            <i class="fa fa-user-circle" style="font-size: 1rem;"></i>
+                            <span style="font-size: 0.9rem; white-space: nowrap;">{{ user.username|truncatechars:20 }}</span>
+                        </div>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item" style="margin-right: 10px;">
+                        <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button" title="Toggle dark/light mode">
+                            <i class="fa fa-moon-o" id="themeIcon"></i> <span id="themeText">Dark</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'logout' %}" style="background-color: #dc3545; color: white !important; padding: 0.4rem 1rem; border-radius: 4px; margin-left: 0.5rem; font-weight: 500;">
+                            <i class="fa fa-sign-out"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Vision Chart Test -->
+    <div class="container mt-3">
+        <div class="text-center mb-3">
+            <h4><i class="fas fa-eye"></i> Vision Chart Test</h4>
+            <p style="color: #666; font-size: 0.9rem; margin-bottom: 0;">Read the letters carefully and maintain a safe viewing distance</p>
+        </div>
+
+        <div class="wrapper">
+            <div class="upload-container">
+                <div class="border-container p-4">
+
+                    <div class="row g-3 align-items-start">
+                        <!-- Left Column: Chart -->
+                        <div class="col-md-6 d-flex flex-column">
+                            <h5 class="text-info mb-2 text-center"><i class="fas fa-chart-bar"></i> Eye Chart</h5>
+                            <div class="bg-dark rounded shadow text-center" style="width: 100%; aspect-ratio: 1; padding: 10px; display: flex; align-items: center; justify-content: center;">
+                                <img id="chartImage" src="" alt="Chart Image" style="max-width: 95%; max-height: 95%; object-fit: contain;">
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Webcam -->
+                        <div class="col-md-6 d-flex flex-column">
+                            <h5 class="text-info mb-2 text-center"><i class="fas fa-ruler-combined"></i> Eye-to-Screen</h5>
+                            <div class="bg-dark rounded shadow text-center" style="width: 100%; aspect-ratio: 1; padding: 10px; display: flex; align-items: center; justify-content: center; position: relative;">
+                                <img src="/video_feed/" id="videoStream" style="max-width: 95%; max-height: 95%; object-fit: contain;">
+                            </div>
+                            <p class="text-muted mt-2 text-center" style="font-size: 0.75rem;">Press <b>'K'</b> to close webcam</p>
+                        </div>
+                    </div>
+
+                    <!-- Question and Options -->
+                    <hr class="mt-4 text-light">
+                    <div class="text-center">
+                        <h5 id="rowQuestion" class="text-primary mb-3"></h5>
+                        <div class="choices mb-3"></div>
+                        
+                        <!-- Voice Input Section -->
+                        <div class="mb-3">
+                            <button id="voiceBtn" class="btn btn-info btn-lg">
+                                <i class="fas fa-microphone"></i> Speak Letter
+                            </button>
+                            <button id="stopVoiceBtn" class="btn btn-danger btn-lg" style="display:none;">
+                                <i class="fas fa-stop"></i> Stop Listening
+                            </button>
+                            <p id="voiceStatus" class="text-muted mt-2" style="font-size: 14px;"></p>
+                        </div>
+                        
+                        <div id="statusMsg" class="text-info fw-bold mb-3"></div>
+                        <button id="nextBtn" class="submitDoc btn btn-success w-50" style="display:none;">
+                            Next Row →
+                        </button>
+                        <p class="text-muted mt-2" style="font-size: 0.85rem;"><i class="fas fa-info-circle"></i> The test will automatically advance after each correct answer.</p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/js/all.min.js"></script>
+
+    <script>
+       let charts = [];        // all charts with layout + url
+    let v_values = [];
+    let currentChart = 0;   // current chart index
+    let currentRow = 0;
+    let currentCol = 0;
+    let currentEye = 'left';
+    let recognition = null;
+    let isListening = false;
+    let restartTimeout = null;
+    let useContinuousVoice = false; // Track if user wants continuous voice recognition
+
+    // Initialize Speech Recognition with Enhanced Google-like Settings
+    function initSpeechRecognition() {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            
+            // Optimized settings for FAST recognition
+            recognition.continuous = true;          // Keep listening for next letter
+            recognition.interimResults = true;      // Process interim results immediately for speed
+            recognition.lang = 'en-US';            // English US for best Google recognition
+            recognition.maxAlternatives = 3;       // Reduced alternatives for faster processing (was 10)
+            
+            // Optimize for single letter recognition - faster response
+            // Recognition will process results as soon as speech is detected
+            
+            // Try to set service URI to use Google's service explicitly (if supported)
+            if (recognition.serviceURI !== undefined) {
+                recognition.serviceURI = 'wss://www.google.com/speech-api/full-duplex/v1';
+            }
+            
+            // Enhanced phonetic hints for better accuracy
+            if (recognition.grammars) {
+                try {
+                    const grammar = '#JSGF V1.0; grammar letters; public <letter> = A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | Q | R | S | T | U | V | W | X | Y | Z | zero | one | two | three | four | five | six | seven | eight | nine;';
+                    // Note: Grammar support varies by browser
+                } catch (e) {
+                    console.log('Grammar hints not supported');
+                }
+            }
+            
+            // Set confidence threshold (if supported)
+            if (recognition.hasOwnProperty('confidence')) {
+                recognition.confidence = 0.5;  // Lower threshold for better recall
+            }
+            
+            // Enable better audio processing (if supported)
+            if (recognition.hasOwnProperty('audioSource')) {
+                // Use default microphone
+            }
+
+            recognition.onstart = function() {
+                isListening = true;
+                const voiceBtn = document.getElementById('voiceBtn');
+                const stopVoiceBtn = document.getElementById('stopVoiceBtn');
+                const voiceStatus = document.getElementById('voiceStatus');
+                
+                if (voiceBtn) voiceBtn.style.display = 'none';
+                if (stopVoiceBtn) stopVoiceBtn.style.display = 'inline-block';
+                if (voiceStatus) {
+                    voiceStatus.textContent = '🎤 Listening... Speak the letter clearly. (Using Google Speech Recognition)';
+                    voiceStatus.style.color = '#28a745';
+                    // Add pulsing animation
+                    voiceStatus.style.animation = 'pulse 1.5s ease-in-out infinite';
+                }
+                
+                console.log('Speech recognition started - Google Speech API active');
+            };
+
+            recognition.onresult = function(event) {
+                // Process all results with alternatives for better accuracy
+                let bestMatch = null;
+                let bestConfidence = 0;
+                let allAlternatives = [];
+                
+                // Collect all alternatives from all results
+                for (let i = 0; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    const transcript = result[0].transcript.trim();
+                    const confidence = result[0].confidence || 0.8;
+                    
+                    // Store all alternatives
+                    allAlternatives.push({
+                        text: transcript,
+                        confidence: confidence
+                    });
+                    
+                    // Also check alternatives if available
+                    if (result.length > 1) {
+                        for (let j = 1; j < result.length && j < 5; j++) {
+                            allAlternatives.push({
+                                text: result[j].transcript.trim(),
+                                confidence: result[j].confidence || (confidence * 0.8)
+                            });
+                        }
+                    }
+                }
+                
+                // Use the most confident result
+                if (allAlternatives.length > 0) {
+                    allAlternatives.sort((a, b) => b.confidence - a.confidence);
+                    bestMatch = allAlternatives[0].text;
+                    bestConfidence = allAlternatives[0].confidence;
+                } else {
+                    // Fallback: concatenate all transcripts
+                    bestMatch = '';
+                    for (let i = 0; i < event.results.length; i++) {
+                        bestMatch += event.results[i][0].transcript;
+                    }
+                    bestMatch = bestMatch.trim();
+                }
+                
+                const spokenText = bestMatch;
+                const upperSpoken = spokenText.toUpperCase().trim();
+                
+                console.log('Voice recognition result:', spokenText, '->', upperSpoken, 'Confidence:', bestConfidence);
+                console.log('All alternatives:', allAlternatives);
+                
+                // Get available options
+                const layout = charts[currentChart].layout;
+                const row = layout[currentRow];
+                const correct = row[currentCol];
+                const choicesDiv = document.querySelector('.choices');
+                const buttons = choicesDiv.querySelectorAll('button');
+                
+                // Get all available options from buttons
+                const availableOptions = Array.from(buttons).map(btn => btn.textContent.trim());
+                console.log('Available options:', availableOptions);
+                
+                // Check if result is final
+                const isFinal = event.results[event.results.length - 1].isFinal;
+                
+                // Show interim results if still processing
+                if (!isFinal) {
+                    document.getElementById('voiceStatus').textContent = `🎤 Listening... "${spokenText}"`;
+                    document.getElementById('voiceStatus').style.color = '#ffc107';
+                    // FAST PATH: Process immediately if we have a single character match (don't wait for final)
+                    if (upperSpoken.length === 1 && availableOptions.includes(upperSpoken)) {
+                        console.log('FAST MATCH (interim):', upperSpoken, 'Options:', availableOptions);
+                        // Process immediately with all alternatives
+                        processRecognitionResult(upperSpoken, availableOptions, correct, allAlternatives);
+                        return;
+                    }
+                    return; // Wait for final result
+                }
+                
+                // Process final result
+                console.log('Processing final result:', upperSpoken, 'Options:', availableOptions);
+                processRecognitionResult(upperSpoken, availableOptions, correct, allAlternatives);
+            };
+            
+            // Extract processing logic to separate function for clarity and speed
+            function processRecognitionResult(upperSpoken, availableOptions, correct, allAlternatives = []) {
+                
+                document.getElementById('voiceStatus').textContent = `You said: "${upperSpoken}"`;
+                document.getElementById('voiceStatus').style.color = '#007bff';
+                
+                console.log('Available options:', availableOptions);
+                
+                // Number word to digit mapping - Enhanced for better recognition
+                const numberMap = {
+                    'ZERO': '0', 'OH': '0', 'O': '0', 'ZERO': '0',
+                    'ONE': '1', 'WON': '1', 'WUN': '1',
+                    'TWO': '2', 'TO': '2', 'TOO': '2', 'TU': '2',
+                    'THREE': '3', 'TREE': '3', 'THRE': '3',
+                    'FOUR': '4', 'FOR': '4', 'FORE': '4', 'FO': '4',
+                    'FIVE': '5', 'FIV': '5',
+                    'SIX': '6', 'SICKS': '6', 'SICS': '6',
+                    'SEVEN': '7', 'SEVN': '7',
+                    'EIGHT': '8', 'ATE': '8', 'AIT': '8', 'EIGT': '8', 'EIGHTEEN': '8', // Handle "eight" variations
+                    'NINE': '9', 'NEIN': '9', 'NIN': '9'
+                };
+
+                // Letter word to single-letter mapping
+                // Helps when browser returns words like "see" for "C", "why" for "Y", etc.
+                const letterWordMap = {
+                    'A': 'A', 'AY': 'A', 'EH': 'A', 'EYE': 'I', 'I': 'I',
+                    'B': 'B', 'BEE': 'B', 'BE': 'B', 'BEA': 'B',
+                    'C': 'C', 'SEE': 'C', 'SEA': 'C', 'SI': 'C',
+                    'D': 'D', 'DEE': 'D', 'DE': 'D',
+                    'E': 'E', 'EE': 'E', 'EH': 'E', 'EA': 'E',
+                    'F': 'F', 'EF': 'F', 'EFF': 'F', 'PH': 'F',
+                    'G': 'G', 'GEE': 'G', 'JE': 'G',
+                    'H': 'H', 'AITCH': 'H', 'HACH': 'H',
+                    'I': 'I', 'EYE': 'I', 'AYE': 'I',
+                    'J': 'J', 'JAY': 'J', 'G': 'G',
+                    'K': 'K', 'KAY': 'K', 'CAY': 'K',
+                    'L': 'L', 'EL': 'L', 'ELL': 'L',
+                    'M': 'M', 'EM': 'M', 'EMM': 'M',
+                    'N': 'N', 'EN': 'N', 'ENN': 'N',
+                    'O': 'O', 'OH': 'O', 'OW': 'O',
+                    'P': 'P', 'PEE': 'P', 'PEA': 'P',
+                    'Q': 'Q', 'CUE': 'Q', 'QUE': 'Q',
+                    'R': 'R', 'AR': 'R', 'ARE': 'R',
+                    'S': 'S', 'ESS': 'S', 'ES': 'S',
+                    'T': 'T', 'TEE': 'T', 'TEA': 'T',
+                    'U': 'U', 'YOU': 'U', 'YEW': 'U',
+                    'V': 'V', 'VEE': 'V', 'VEA': 'V',
+                    'W': 'W', 'DOUBLE': 'W', 'DOUBLE-U': 'W', 'DOUBLEYOU': 'W',
+                    'X': 'X', 'EX': 'X', 'ECKS': 'X',
+                    'Y': 'Y', 'WHY': 'Y', 'WYE': 'Y',
+                    'Z': 'Z', 'ZEE': 'Z', 'ZED': 'Z', 'ZEA': 'Z'
+                };
+                
+                // Commonly confused letters mapping
+                // Helps resolve issues like F <-> I, E <-> F, etc.
+                const letterConfusionMap = {
+                    // F is often confused with I/E
+                    'I': ['F', 'E'],
+                    'E': ['F', 'I'],
+                    'F': ['I', 'E'],
+                    // B is often confused with D/P
+                    'B': ['D', 'P'],
+                    'D': ['B', 'P'],
+                    'P': ['B', 'D'],
+                    // S is often confused with F
+                    'S': ['F'],
+                    'M': ['N'],
+                    'N': ['M'],
+                    'U': ['V'],
+                    'V': ['U'],
+                    'W': ['M'],
+                    'Z': ['S']
+                };
+                
+                // Direction word mapping
+                const directionMap = {
+                    'UP': 'up',
+                    'DOWN': 'down',
+                    'LEFT': 'left',
+                    'RIGHT': 'right',
+                    'U': 'up',
+                    'D': 'down',
+                    'L': 'left',
+                    'R': 'right'
+                };
+                
+                let matchedOption = null;
+                
+                // Check if we're looking for single letters (common case)
+                const allSingleLetters = availableOptions.length > 0 && 
+                    availableOptions.every(opt => opt.length === 1 && /[A-Z0-9А-Я]/.test(opt));
+                
+                // Common words that might be misrecognized (e.g., "yes" for "S", "no" for "O" or "N")
+                const commonWordsToFilter = ['YES', 'NO', 'OKAY', 'OK', 'YEAH', 'YEP', 'NAH', 'YEA'];
+                
+                // PRIORITY STRATEGY: If looking for single letters, extract from words first
+                // This fixes issues like "yes" being recognized when user says "S"
+                if (!matchedOption && allSingleLetters) {
+                    // Check all alternatives for single character matches
+                    for (const alt of allAlternatives) {
+                        const altUpper = alt.text.toUpperCase().trim();
+                        
+                        // Skip common words that are likely misrecognitions
+                        if (commonWordsToFilter.includes(altUpper)) {
+                            // Extract single characters from these words
+                            // "YES" -> check for "S", "Y", "E"
+                            // "NO" -> check for "N", "O"
+                            for (let i = 0; i < altUpper.length; i++) {
+                                const char = altUpper[i];
+                                if (availableOptions.includes(char)) {
+                                    matchedOption = char;
+                                    console.log('Extracted letter from common word:', alt.text, '->', char);
+                                    break;
+                                }
+                            }
+                            if (matchedOption) break;
+                            continue; // Skip this alternative
+                        }
+                        
+                        // Direct single character match
+                        if (altUpper.length === 1 && availableOptions.includes(altUpper)) {
+                            matchedOption = altUpper;
+                            console.log('Alternative match (single char):', alt.text, 'Confidence:', alt.confidence);
+                            break;
+                        }
+                        
+                        // Extract single characters from multi-character words
+                        if (altUpper.length > 1) {
+                            for (let i = 0; i < altUpper.length; i++) {
+                                const char = altUpper[i];
+                                if (/[A-Z0-9А-Я]/.test(char) && availableOptions.includes(char)) {
+                                    matchedOption = char;
+                                    console.log('Extracted letter from word:', alt.text, '->', char);
+                                    break;
+                                }
+                            }
+                            if (matchedOption) break;
+                        }
+                    }
+                    
+                    // Also check the main spoken text
+                    if (!matchedOption) {
+                        // Filter out common words
+                        if (!commonWordsToFilter.includes(upperSpoken)) {
+                            // Extract single characters
+                            for (let i = 0; i < upperSpoken.length; i++) {
+                                const char = upperSpoken[i];
+                                if (/[A-Z0-9А-Я]/.test(char) && availableOptions.includes(char)) {
+                                    matchedOption = char;
+                                    console.log('Extracted letter from spoken text:', upperSpoken, '->', char);
+                                    break;
+                                }
+                            }
+                        } else {
+                            // It's a common word, extract letters
+                            for (let i = 0; i < upperSpoken.length; i++) {
+                                const char = upperSpoken[i];
+                                if (availableOptions.includes(char)) {
+                                    matchedOption = char;
+                                    console.log('Extracted letter from filtered word:', upperSpoken, '->', char);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // NEW STRATEGY: Check all alternatives from recognition results
+                // This uses Google's multiple alternatives for better accuracy
+                if (!matchedOption && allAlternatives.length > 0) {
+                    for (const alt of allAlternatives) {
+                        const altUpper = alt.text.toUpperCase().trim();
+                        const altWords = altUpper.split(/\s+/).filter(Boolean);
+                        
+                        // Skip common words if we're looking for single letters
+                        if (allSingleLetters && commonWordsToFilter.includes(altUpper)) {
+                            continue;
+                        }
+                        
+                        // Try direct match
+                        if (availableOptions.includes(altUpper)) {
+                            matchedOption = altUpper;
+                            console.log('Alternative match (direct):', alt.text, 'Confidence:', alt.confidence);
+                            break;
+                        }
+                        
+                        // Try single character extraction
+                        if (altUpper.length === 1 && availableOptions.includes(altUpper)) {
+                            matchedOption = altUpper;
+                            console.log('Alternative match (single char):', alt.text, 'Confidence:', alt.confidence);
+                            break;
+                        }
+                        
+                        // Try word-by-word matching
+                        for (const word of altWords) {
+                            if (availableOptions.includes(word)) {
+                                matchedOption = word;
+                                console.log('Alternative match (word):', word, 'from', alt.text, 'Confidence:', alt.confidence);
+                                break;
+                            }
+                        }
+                        
+                        if (matchedOption) break;
+                    }
+                }
+                
+                // Split into words once so we can reuse
+                const words = upperSpoken.split(/\s+/).filter(Boolean);
+
+                // Detect if current options are numbers (Snellen numbers chart)
+                const allNumericOptions = availableOptions.length > 0 && availableOptions.every(opt => /^[0-9]+$/.test(opt));
+
+                // Strategy 0a: If numbers chart, try mapping spoken number words per-token
+                // Enhanced to handle full words like "eight" better
+                if (!matchedOption && allNumericOptions) {
+                    // First try exact word match
+                    if (numberMap[upperSpoken]) {
+                        const mappedDigit = numberMap[upperSpoken];
+                        if (availableOptions.includes(mappedDigit)) {
+                            matchedOption = mappedDigit;
+                            console.log('Number word exact match:', upperSpoken, '->', matchedOption);
+                        }
+                    }
+                    // Then try word-by-word matching
+                    if (!matchedOption) {
+                        for (const w of words) {
+                            const mappedDigit = numberMap[w];
+                            if (mappedDigit && availableOptions.includes(mappedDigit)) {
+                                matchedOption = mappedDigit;
+                                console.log('Number word token match:', w, '->', matchedOption);
+                                break;
+                            }
+                        }
+                    }
+                    // Also check if the word contains number names (e.g., "eight" in "eighteen")
+                    if (!matchedOption) {
+                        for (const numWord in numberMap) {
+                            if (upperSpoken.includes(numWord) || numWord.includes(upperSpoken)) {
+                                const mappedDigit = numberMap[numWord];
+                                if (availableOptions.includes(mappedDigit)) {
+                                    matchedOption = mappedDigit;
+                                    console.log('Number word partial match:', numWord, 'from', upperSpoken, '->', matchedOption);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Strategy 0b: Still numbers chart – extract any literal digit from speech
+                if (!matchedOption && allNumericOptions) {
+                    const digitsInSpeech = upperSpoken.match(/[0-9]/g);
+                    if (digitsInSpeech && digitsInSpeech.length > 0) {
+                        for (const d of digitsInSpeech) {
+                            if (availableOptions.includes(d)) {
+                                matchedOption = d;
+                                console.log('Digit extracted from speech:', upperSpoken, '->', matchedOption);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Strategy 0c: Map spoken letter words to single letters
+                if (!matchedOption) {
+                    // Check each word separately (e.g., "LETTER C" -> "C")
+                    for (const w of words) {
+                        const mappedLetter = letterWordMap[w];
+                        if (mappedLetter && availableOptions.includes(mappedLetter)) {
+                            matchedOption = mappedLetter;
+                            console.log('Letter word match:', w, '->', matchedOption);
+                            break;
+                        }
+                    }
+                }
+                
+                // Strategy 1: Direct match with available options
+                if (!matchedOption && availableOptions.includes(upperSpoken)) {
+                    matchedOption = upperSpoken;
+                    console.log('Direct match found:', matchedOption);
+                }
+                // Strategy 2: Check if it's exactly the correct option
+                else if (upperSpoken === correct) {
+                    matchedOption = correct;
+                    console.log('Correct option match:', matchedOption);
+                }
+                // Strategy 3: Single character - check if it's a number or letter
+                if (!matchedOption && upperSpoken.length === 1) {
+                    // Check if it's a digit
+                    if (/[0-9]/.test(upperSpoken)) {
+                        if (availableOptions.includes(upperSpoken)) {
+                            matchedOption = upperSpoken;
+                            console.log('Single digit match:', matchedOption);
+                        }
+                    }
+                    // Check if it's a letter
+                    else if (/[A-ZА-Я]/.test(upperSpoken)) {
+                        if (availableOptions.includes(upperSpoken)) {
+                            matchedOption = upperSpoken;
+                            console.log('Single letter match:', matchedOption);
+                        } else {
+                            // Check if it's a commonly confused letter
+                            const confusedLetters = letterConfusionMap[upperSpoken] || [];
+                            for (const confusedLetter of confusedLetters) {
+                                if (availableOptions.includes(confusedLetter)) {
+                                    matchedOption = confusedLetter;
+                                    console.log('Confused letter match:', upperSpoken, '->', matchedOption);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Strategy 3b: Extract single character from words (especially for "yes" -> "S")
+                if (!matchedOption && allSingleLetters && upperSpoken.length > 1) {
+                    // Filter out common words
+                    if (!commonWordsToFilter.includes(upperSpoken)) {
+                        // Extract single characters from the spoken text
+                        for (let i = 0; i < upperSpoken.length; i++) {
+                            const char = upperSpoken[i];
+                            if (/[A-Z0-9А-Я]/.test(char) && availableOptions.includes(char)) {
+                                matchedOption = char;
+                                console.log('Extracted single char from word:', upperSpoken, '->', char);
+                                break;
+                            }
+                        }
+                    } else {
+                        // It's a common word like "yes", extract letters
+                        for (let i = 0; i < upperSpoken.length; i++) {
+                            const char = upperSpoken[i];
+                            if (availableOptions.includes(char)) {
+                                matchedOption = char;
+                                console.log('Extracted letter from common word:', upperSpoken, '->', char);
+                                break;
+                            }
+                        }
+                    }
+                }
+                // Strategy 4: Direction word mapping
+                if (!matchedOption) {
+                    // Check direct direction word match
+                    if (directionMap[upperSpoken]) {
+                        const direction = directionMap[upperSpoken];
+                        if (availableOptions.includes(direction)) {
+                            matchedOption = direction;
+                            console.log('Direction word match:', upperSpoken, '->', matchedOption);
+                        }
+                    }
+                    // Check partial direction word matches
+                    if (!matchedOption) {
+                        for (let word in directionMap) {
+                            if (upperSpoken.includes(word) || word.includes(upperSpoken)) {
+                                const direction = directionMap[word];
+                                if (availableOptions.includes(direction)) {
+                                    matchedOption = direction;
+                                    console.log('Partial direction word match:', word, '->', matchedOption);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Strategy 5: Number word mapping
+                if (!matchedOption) {
+                    // Check direct number word match
+                    if (numberMap[upperSpoken]) {
+                        const digit = numberMap[upperSpoken];
+                        if (availableOptions.includes(digit)) {
+                            matchedOption = digit;
+                            console.log('Number word match:', upperSpoken, '->', matchedOption);
+                        }
+                    }
+                    // Check partial number word matches
+                    if (!matchedOption) {
+                        for (let word in numberMap) {
+                            if (upperSpoken.includes(word) || word.includes(upperSpoken)) {
+                                const digit = numberMap[word];
+                                if (availableOptions.includes(digit)) {
+                                    matchedOption = digit;
+                                    console.log('Partial number word match:', word, '->', matchedOption);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Strategy 6: Check against available buttons (most lenient)
+                if (!matchedOption) {
+                    buttons.forEach(btn => {
+                        const btnText = btn.textContent.trim();
+                        const btnUpper = btnText.toUpperCase();
+                        // Check various matching conditions
+                        if (upperSpoken === btnUpper || 
+                            upperSpoken.includes(btnUpper) || 
+                            btnUpper.includes(upperSpoken) ||
+                            upperSpoken.replace(/[^A-Z0-9А-Я]/g, '') === btnUpper ||
+                            btnUpper.replace(/[^A-Z0-9А-Я]/g, '') === upperSpoken) {
+                            matchedOption = btnText;
+                            console.log('Button match found:', btnText);
+                        }
+                    });
+                }
+                
+                // Final check: if we have a match, verify it's in available options
+                if (matchedOption) {
+                    let isValidOption = availableOptions.includes(matchedOption);
+                    
+                    if (isValidOption) {
+                        document.getElementById('voiceStatus').textContent = `✅ Recognized: "${matchedOption}"`;
+                        document.getElementById('voiceStatus').style.color = '#28a745';
+                        // Temporarily stop listening but keep continuous voice enabled
+                        // This allows auto-restart for next letter
+                        if (recognition) {
+                            try {
+                                recognition.stop();
+                            } catch (e) {
+                                // Ignore errors when stopping
+                            }
+                            isListening = false;
+                            if (restartTimeout) {
+                                clearTimeout(restartTimeout);
+                            }
+                            // Reset button display but keep useContinuousVoice = true
+                            const voiceBtn = document.getElementById('voiceBtn');
+                            const stopVoiceBtn = document.getElementById('stopVoiceBtn');
+                            const voiceStatus = document.getElementById('voiceStatus');
+                            
+                            if (voiceBtn) voiceBtn.style.display = 'inline-block';
+                            if (stopVoiceBtn) stopVoiceBtn.style.display = 'none';
+                            if (voiceStatus) {
+                                voiceStatus.style.animation = '';
+                            }
+                        }
+                        // Simulate button click - reduced delay for faster response
+                        setTimeout(() => {
+                            checkAnswer(matchedOption);
+                        }, 100);
+                    } else {
+                        // Try to find closest match from available options
+                        let closestMatch = null;
+                        availableOptions.forEach(option => {
+                            if (upperSpoken.includes(option) || option.includes(upperSpoken)) {
+                                closestMatch = option;
+                            }
+                        });
+                        
+                        if (closestMatch) {
+                            document.getElementById('voiceStatus').textContent = `✅ Using closest match: "${closestMatch}"`;
+                            document.getElementById('voiceStatus').style.color = '#28a745';
+                            // Temporarily stop listening but keep continuous voice enabled
+                            if (recognition) {
+                                try {
+                                    recognition.stop();
+                                } catch (e) {
+                                    // Ignore errors when stopping
+                                }
+                                isListening = false;
+                                if (restartTimeout) {
+                                    clearTimeout(restartTimeout);
+                                }
+                                // Reset button display but keep useContinuousVoice = true
+                                const voiceBtn = document.getElementById('voiceBtn');
+                                const stopVoiceBtn = document.getElementById('stopVoiceBtn');
+                                const voiceStatus = document.getElementById('voiceStatus');
+                                
+                                if (voiceBtn) voiceBtn.style.display = 'inline-block';
+                                if (stopVoiceBtn) stopVoiceBtn.style.display = 'none';
+                                if (voiceStatus) {
+                                    voiceStatus.style.animation = '';
+                                }
+                            }
+                            setTimeout(() => {
+                            checkAnswer(closestMatch);
+                        }, 100);
+                        } else {
+                            document.getElementById('voiceStatus').textContent = `❌ Recognized "${matchedOption}" but it's not available. Options: ${availableOptions.join(', ')}`;
+                            document.getElementById('voiceStatus').style.color = '#dc3545';
+                            speakText("Sorry, I didn't recognize a valid option. Please try again.");
+                        }
+                    }
+                } else {
+                    // Show what was recognized and what's available
+                    let optionType = 'option';
+                    if (availableOptions.some(opt => ['up', 'down', 'left', 'right'].includes(opt))) {
+                        optionType = 'direction (up, down, left, or right)';
+                    } else if (availableOptions.some(opt => /[0-9]/.test(opt))) {
+                        optionType = 'number';
+                    } else {
+                        optionType = 'letter';
+                    }
+                    document.getElementById('voiceStatus').textContent = `❌ Could not match "${spokenText}". Available: ${availableOptions.join(', ')}. Try saying a ${optionType} clearly.`;
+                    document.getElementById('voiceStatus').style.color = '#dc3545';
+                    speakText(`Sorry, I didn't understand. Please say the ${optionType} clearly.`);
+                    console.log('No match found. Spoken:', spokenText, 'Available:', availableOptions);
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error:', event.error);
+                let errorMsg = 'Error occurred. ';
+                let shouldRetry = false;
+                
+                if (event.error === 'no-speech') {
+                    errorMsg = '🎤 No speech detected. Still listening...';
+                    shouldRetry = true; // Auto-retry for no-speech
+                } else if (event.error === 'audio-capture') {
+                    errorMsg = '❌ No microphone found. Please check your microphone.';
+                    shouldRetry = false;
+                } else if (event.error === 'not-allowed') {
+                    errorMsg = '❌ Microphone permission denied. Please allow microphone access in browser settings.';
+                    shouldRetry = false;
+                } else if (event.error === 'network') {
+                    errorMsg = '⚠️ Network error. Retrying...';
+                    shouldRetry = true;
+                } else if (event.error === 'aborted') {
+                    // Recognition was stopped manually, don't show error
+                    return;
+                } else {
+                    errorMsg = `⚠️ Error: ${event.error}. Retrying...`;
+                    shouldRetry = true;
+                }
+                
+                const voiceStatus = document.getElementById('voiceStatus');
+                if (voiceStatus) {
+                    voiceStatus.textContent = errorMsg;
+                    voiceStatus.style.color = shouldRetry ? '#ffc107' : '#dc3545';
+                }
+                
+                // Auto-retry for recoverable errors
+                if (shouldRetry && isListening) {
+                    setTimeout(() => {
+                        if (isListening && recognition) {
+                            try {
+                                recognition.stop();
+                                setTimeout(() => {
+                                    if (isListening && recognition) {
+                                        recognition.start();
+                                    }
+                                }, 500);
+                            } catch (e) {
+                                console.log('Error during retry:', e);
+                            }
+                        }
+                    }, 1000);
+                } else if (!shouldRetry) {
+                    stopListening();
+                }
+            };
+
+            recognition.onend = function() {
+                // Auto-restart quickly while user is in listening mode
+                if (isListening) {
+                    restartRecognition();
+                } else {
+                    stopListening();
+                }
+            };
+        } else {
+            document.getElementById('voiceBtn').style.display = 'none';
+            document.getElementById('voiceStatus').textContent = 'Voice recognition not supported in your browser.';
+            document.getElementById('voiceStatus').style.color = '#dc3545';
+        }
+    }
+
+    function restartRecognition() {
+        if (!recognition) return;
+        if (restartTimeout) {
+            clearTimeout(restartTimeout);
+        }
+        restartTimeout = setTimeout(() => {
+            if (isListening) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Restart error:', e);
+                }
+            }
+        }, 50); // Reduced delay for faster restart
+    }
+
+    function startListening() {
+        // Set flag to enable continuous voice recognition
+        useContinuousVoice = true;
+        
+        // If recognition isn't initialized yet, try to initialize it
+        if (!recognition) {
+            console.log('Recognition not initialized, initializing now...');
+            initSpeechRecognition();
+            // Wait a bit for initialization, then try again
+            setTimeout(() => {
+                if (recognition) {
+                    startListening();
+                } else {
+                    const voiceStatus = document.getElementById('voiceStatus');
+                    if (voiceStatus) {
+                        voiceStatus.textContent = 'Voice recognition not available. Please refresh the page.';
+                        voiceStatus.style.color = '#dc3545';
+                    }
+                    useContinuousVoice = false;
+                }
+            }, 200);
+            return;
+        }
+        
+        if (recognition) {
+            try {
+                // Always stop any existing recognition first
+                try {
+                    recognition.stop();
+                } catch (e) {
+                    // Ignore if already stopped
+                }
+                isListening = true;
+                // Small delay before starting - reduced for faster response
+                setTimeout(() => {
+                    recognition.start();
+                }, 50);
+            } catch (e) {
+                console.error('Error starting recognition:', e);
+                const voiceStatus = document.getElementById('voiceStatus');
+                if (voiceStatus) {
+                    voiceStatus.textContent = 'Error starting voice recognition. Please try again.';
+                    voiceStatus.style.color = '#dc3545';
+                }
+                useContinuousVoice = false;
+            }
+        } else {
+            const voiceStatus = document.getElementById('voiceStatus');
+            if (voiceStatus) {
+                voiceStatus.textContent = 'Voice recognition not supported in your browser.';
+                voiceStatus.style.color = '#dc3545';
+            }
+            useContinuousVoice = false;
+        }
+    }
+
+    function stopListening() {
+        // Disable continuous voice recognition when user manually stops
+        useContinuousVoice = false;
+        
+        if (recognition) {
+            try {
+                recognition.stop();
+            } catch (e) {
+                // Ignore errors when stopping
+            }
+            isListening = false;
+            if (restartTimeout) {
+                clearTimeout(restartTimeout);
+            }
+            const voiceBtn = document.getElementById('voiceBtn');
+            const stopVoiceBtn = document.getElementById('stopVoiceBtn');
+            const voiceStatus = document.getElementById('voiceStatus');
+            
+            if (voiceBtn) voiceBtn.style.display = 'inline-block';
+            if (stopVoiceBtn) stopVoiceBtn.style.display = 'none';
+            
+            // Clear animation
+            if (voiceStatus) {
+                voiceStatus.style.animation = '';
+            }
+            
+            // Don't clear status message immediately - let user see the result
+            setTimeout(() => {
+                if (!isListening && voiceStatus) {
+                    voiceStatus.textContent = '';
+                }
+            }, 2000);
+        }
+    }
+
+    // Voice synthesis for instructions
+    function speakText(text) {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9; // Slightly slower for clarity
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    async function loadTest() {
+        // Initialize theme toggle with icons
+        (function () {
+            const btn = document.getElementById('themeToggle');
+            const icon = document.getElementById('themeIcon');
+            const text = document.getElementById('themeText');
+            if (!btn) return;
+            const applyTheme = (theme) => {
+                document.body.setAttribute('data-theme', theme);
+                if (icon) {
+                    icon.className = theme === 'dark' ? 'fa fa-sun-o' : 'fa fa-moon-o';
+                }
+                if (text) {
+                    text.textContent = theme === 'dark' ? 'Light' : 'Dark';
+                }
+                btn.title = `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`;
+            };
+            const stored = localStorage.getItem('visionTheme') || 'light';
+            applyTheme(stored);
+            btn.addEventListener('click', () => {
+                const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('visionTheme', next);
+                applyTheme(next);
+            });
+        })();
+        
+        const res = await fetch('/start_test');
+        const data = await res.json();
+        charts = data.charts;
+        v_values = data.v_values;
+
+        // Enhanced chart preloading with caching and loading states
+        const chartImages = {};
+        const preloadPromises = charts.map((c, index) => {
+            if (!c.url) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    chartImages[c.url] = img;
+                    console.log(`Chart ${index + 1} preloaded: ${c.url}`);
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    console.warn(`Failed to preload chart ${index + 1}: ${c.url}`);
+                    reject(new Error(`Failed to load ${c.url}`));
+                };
+                // Add cache-busting query param if needed, but prefer browser cache
+                img.src = c.url + '?v=' + Date.now();
+            });
+        });
+        
+        // Wait for all charts to preload, but don't block the UI
+        Promise.allSettled(preloadPromises).then(results => {
+            const loaded = results.filter(r => r.status === 'fulfilled').length;
+            console.log(`Preloaded ${loaded}/${charts.length} charts`);
+        });
+        
+        // Optimize chart switching with smooth transitions
+        const chartImgElement = document.getElementById('chartImage');
+        const switchChart = (url) => {
+            if (chartImages[url]) {
+                // Use preloaded image for instant switching
+                chartImgElement.src = chartImages[url].src;
+            } else {
+                // Fallback to direct URL
+                chartImgElement.classList.add('chart-loading');
+                chartImgElement.src = url;
+                chartImgElement.onload = () => {
+                    chartImgElement.classList.remove('chart-loading');
+                };
+            }
+        };
+
+        // Welcome message and instructions for left eye
+        speakText("Welcome to the vision test. Please cover your right eye with your hand. We will now test your left eye. Look at the chart and read the letters you see clearly. When using voice, speak each letter slowly and clearly. For example, say 'F' as in 'Fox', 'E' as in 'Elephant'. You can either click the buttons or use the microphone to speak the letters.");
+        
+        // Load first chart using optimized switching
+        if (typeof switchChart === 'function') {
+            switchChart(charts[currentChart].url);
+        } else {
+            document.getElementById('chartImage').src = charts[currentChart].url;
+        }
+        showNextLetter();
+    }
+
+    function showNextLetter() {
+        // Check if we have charts loaded
+        if (!charts || charts.length === 0) {
+            console.error('No charts loaded');
+            return;
+        }
+        
+        // Check if current chart index is valid
+        if (currentChart >= charts.length) {
+            finishEye();
+            return;
+        }
+        
+        const layout = charts[currentChart].layout;
+        document.getElementById('statusMsg').innerHTML = '';
+
+        // Check if we've finished all rows in current chart
+        if (currentRow >= layout.length) {
+            // Move to next chart
+            currentChart++;
+            currentRow = 0;
+            currentCol = 0;
+
+            // if more charts remain, show next chart
+            if (currentChart < charts.length) {
+                if (typeof switchChart === 'function') {
+                    switchChart(charts[currentChart].url);
+                } else {
+                    document.getElementById('chartImage').src = charts[currentChart].url;
+                }
+                document.getElementById('statusMsg').innerHTML = '✅ Great! Moving to next chart.';
+                speakText("Great! Moving to the next chart.");
+                setTimeout(() => {
+                    showNextLetter();
+                }, 1500);
+                return;
+            }
+
+            // all charts done for this eye
+            finishEye();
+            return;
+        }
+
+        const rowNames = [
+            "first", "second", "third", "fourth", "fifth", "sixth",
+            "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth"
+        ];
+        const currentRowName = rowNames[currentRow] || `${currentRow + 1}th`;
+        const row = layout[currentRow];
+        
+        // Determine chart type: directions, numbers, or letters
+        const isDirectionsChart = row.some(item => ['up', 'down', 'left', 'right'].includes(item));
+        const isNumbersChart = row.some(char => /[0-9]/.test(char));
+        const itemType = isDirectionsChart ? 'direction' : (isNumbersChart ? 'number' : 'letter');
+        
+        if (isDirectionsChart) {
+            document.getElementById('rowQuestion').innerHTML =
+                `Look at the <b>${currentRowName}</b> row. Which <b>direction</b> is the E pointing? (Say up, down, left, or right)`;
+        } else {
+            document.getElementById('rowQuestion').innerHTML =
+                `Look at the <b>${currentRowName}</b> row. Which <b>single ${itemType}</b> do you see? (Say one ${itemType} at a time)`;
+        }
+
+        // Hide next button until eye test is completed
+        document.getElementById('nextBtn').style.display = 'none';
+        document.getElementById('nextBtn').textContent = 'Next Row →';
+        document.getElementById('nextBtn').onclick = () => showNextLetter();
+
+        // Always include the correct answer from chart row
+        let correct = row[currentCol];
+        
+        // Unique values for current row and whole chart (keeps options aligned to image)
+        const rowItems = Array.from(new Set(row));
+        const chartItems = Array.from(new Set(layout.flat()));
+        
+        // Determine available options based on chart type
+        let availableOptions = [];
+        if (isDirectionsChart) {
+            availableOptions = ['up', 'down', 'left', 'right'];
+        } else if (isNumbersChart) {
+            // prefer numbers actually present in this chart; fallback to 0-9 if too few
+            availableOptions = chartItems.filter(x => /[0-9]/.test(x));
+            if (availableOptions.length < 4) {
+                availableOptions = ['0','1','2','3','4','5','6','7','8','9'];
+            }
+        } else {
+            // letters: prefer this row's letters, then other letters from same chart
+            availableOptions = rowItems.length >= 4 ? rowItems : chartItems.filter(x => /^[A-Z]$/i.test(x));
+            // still not enough? fill with generic letters
+            if (availableOptions.length < 4) {
+                const filler = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+                filler.forEach(l => { if (availableOptions.length < 8 && !availableOptions.includes(l)) availableOptions.push(l); });
+            }
+        }
+        
+        // Create 4 options: 1 correct + 3 random wrong options (all from same chart/type)
+        let options = [correct];
+
+        // Add random wrong options
+        while (options.length < 4 && availableOptions.length > 0) {
+            let randomOption = availableOptions[Math.floor(Math.random() * availableOptions.length)];
+            if (!options.includes(randomOption)) {
+                options.push(randomOption);
+            }
+        }
+
+        // shuffle final options
+        options = shuffle(options);
+
+       
+        const choicesDiv = document.querySelector('.choices');
+        choicesDiv.innerHTML = '';
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-outline-primary m-2';
+            btn.textContent = opt;
+            btn.onclick = () => checkAnswer(opt);
+            choicesDiv.appendChild(btn);
+        });
+        
+        // Auto-restart voice recognition if user was using continuous voice input
+        // Reduced delay for faster recognition restart
+        if (useContinuousVoice && recognition) {
+            // Small delay to ensure UI is updated - reduced for faster response
+            setTimeout(() => {
+                if (useContinuousVoice && !isListening && recognition) {
+                    console.log('Auto-restarting voice recognition for next letter/number');
+                    try {
+                        // Ensure recognition is properly stopped before restarting
+                        try {
+                            recognition.stop();
+                        } catch (e) {
+                            // Ignore if already stopped
+                        }
+                        // Small delay before restart
+                        setTimeout(() => {
+                            if (useContinuousVoice && !isListening && recognition) {
+                                startListening();
+                            }
+                        }, 100);
+                    } catch (e) {
+                        console.error('Error restarting recognition:', e);
+                    }
+                }
+            }, 150); // Reduced from 200ms to 150ms
+        }
+    }
+
+    function shuffle(arr) {
+        return arr.sort(() => Math.random() - 0.5);
+    }
+
+    async function checkAnswer(userChoice) {
+        const layout = charts[currentChart].layout;
+        const formData = new FormData();
+        formData.append('eye', currentEye);
+        formData.append('row', currentRow);
+        formData.append('col', currentCol);
+        formData.append('choice', userChoice);
+        formData.append('layout', JSON.stringify(layout));
+
+        const res = await fetch('/check_answer', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.status === 'correct') {
+            document.getElementById('statusMsg').innerHTML = '✅ Correct!';
+            speakText("Correct!");
+            currentCol++;
+            const row = layout[currentRow];
+            
+            // Check if we've finished the current row
+            if (currentCol >= row.length) {
+                currentCol = 0;
+                currentRow++;
+                
+                // Check if we've finished all rows in current chart
+                if (currentRow >= layout.length) {
+                    // Move to next chart
+                    currentChart++;
+                    if (currentChart < charts.length) {
+                        // More charts available
+                        if (typeof switchChart === 'function') {
+                            switchChart(charts[currentChart].url);
+                        } else {
+                            document.getElementById('chartImage').src = charts[currentChart].url;
+                        }
+                        currentRow = 0;
+                        currentCol = 0;
+                        document.getElementById('statusMsg').innerHTML = '✅ Great! Moving to next chart.';
+                        speakText("Great! Moving to the next chart.");
+                        // Auto-advance after short delay
+                        setTimeout(() => {
+                            showNextLetter();
+                        }, 1500);
+                        return;
+                    } else {
+                        // All charts done for this eye - continue testing until wrong answer
+                        // Don't move to next eye automatically - only move on wrong answer
+                        document.getElementById('statusMsg').innerHTML = `✅ Great! Continue reading the chart.`;
+                        speakText("Great! Continue reading the chart.");
+                        // Auto-advance to show next letter (will loop back to first chart)
+                        setTimeout(() => {
+                            // Reset to first chart and continue testing
+                            currentChart = 0;
+                            currentRow = 0;
+                            currentCol = 0;
+                            if (typeof switchChart === 'function') {
+                                switchChart(charts[0].url);
+                            } else {
+                                document.getElementById('chartImage').src = charts[0].url;
+                            }
+                            showNextLetter();
+                        }, 1000);
+                        return;
+                    }
+                } else {
+                    // More rows in current chart
+                    document.getElementById('statusMsg').innerHTML = '✅ Great! Move to next row.';
+                    speakText("Great! Move to the next row.");
+                    // Auto-advance to next row after short delay
+                    setTimeout(() => {
+                        showNextLetter();
+                    }, 1000);
+                    return;
+                }
+            } else {
+                // More letters/numbers in current row - auto-advance (reduced delay for faster response)
+                setTimeout(() => {
+                    showNextLetter();
+                }, 200); // Reduced from 300ms to 200ms for faster recognition
+            }
+        } else {
+            // Wrong answer - automatically move to next eye test (faster response)
+            const v = parseFloat(data.v) || 1.0;
+            const d = parseFloat(data.diopter) || 0.0;
+            
+            // Stop voice recognition
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch (e) {
+                    // Ignore errors
+                }
+                isListening = false;
+                useContinuousVoice = false;
+            }
+            
+            document.getElementById('statusMsg').innerHTML =
+                `❌ Wrong! <br> ${data.message}<br>${data.recommendation}`;
+            
+            if (currentEye === 'left') {
+                // Left eye failed - automatically move to right eye test (reduced delay)
+                speakText("Left eye test result recorded. Now we will test your right eye. Please cover your left eye with your hand.");
+                setTimeout(() => {
+                    nextEye(v, d);
+                }, 1500); // Reduced from 3000ms to 1500ms
+            } else {
+                // Right eye failed - finish test and show results (reduced delay)
+                speakText("Right eye test result recorded. Test completed. Redirecting to results page.");
+                setTimeout(() => {
+                    const left_v = sessionStorage.getItem('left_v') || '1.0';
+                    const left_d = sessionStorage.getItem('left_d') || '0.0';
+                    window.location.href = `/final_result?left_v=${left_v}&right_v=${v}&left_d=${left_d}&right_d=${d}`;
+                }, 1500); // Reduced from 3000ms to 1500ms
+            }
+        }
+    }
+
+    // Initialize speech recognition on page load (like home.html)
+    function initializePage() {
+        initSpeechRecognition();
+        // Set up button handlers after initialization
+        const nextBtn = document.getElementById('nextBtn');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const stopVoiceBtn = document.getElementById('stopVoiceBtn');
+        
+        if (nextBtn) {
+            nextBtn.onclick = () => showNextLetter();
+        }
+        if (voiceBtn) {
+            voiceBtn.onclick = () => startListening();
+        }
+        if (stopVoiceBtn) {
+            stopVoiceBtn.onclick = () => stopListening();
+        }
+    }
+
+    // Initialize immediately if DOM is ready, otherwise wait for DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializePage);
+    } else {
+        // DOM is already loaded
+        initializePage();
+    }
+
+    function nextEye(v, d) {
+        if (currentEye === 'left') {
+            sessionStorage.setItem('left_v', v);
+            sessionStorage.setItem('left_d', d);
+            
+            // Voice instruction for right eye
+            speakText("Left eye test completed. Now please cover your left eye with your hand. We will now test your right eye. Look at the chart and read the letters you see clearly. When using voice, speak each letter slowly and clearly. For example, say 'F' as in 'Fox', 'E' as in 'Elephant'.");
+            
+            // Also show alert for users who might have audio disabled
+            alert("Now test your RIGHT eye! Close your left eye and continue.");
+            
+            currentEye = 'right';
+            currentChart = 0;
+            currentRow = 0;
+            currentCol = 0;
+            if (typeof switchChart === 'function') {
+                switchChart(charts[0].url);
+            } else {
+                document.getElementById('chartImage').src = charts[0].url;
+            }
+            showNextLetter();
+        } else {
+            sessionStorage.setItem('right_v', v);
+            sessionStorage.setItem('right_d', d);
+            
+            // Voice instruction for completion
+            speakText("Right eye test completed. Thank you for completing the vision test. Redirecting to results page.");
+            
+            const left_v = sessionStorage.getItem('left_v') || '1.0';
+            const left_d = sessionStorage.getItem('left_d') || '0.0';
+            
+            window.location.href = `/final_result?left_v=${left_v}&right_v=${v}&left_d=${left_d}&right_d=${d}`;
+        }
+    }
+
+    // finishEye function removed - transition is now handled manually
+
+    loadTest();
+    </script>
+</body>
+</html>

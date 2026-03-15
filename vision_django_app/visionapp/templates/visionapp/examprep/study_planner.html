@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Planner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="planner-page">
+    <nav class="navbar">
+        <div class="nav-brand">📚 AI Study Planner</div>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Vision App</a>
+            <a href="{% url 'examprep_dashboard' %}">Exam Prep</a>
+            <a href="{% url 'study_planner' %}" class="active">Study Planner</a>
+            <a href="{% url 'view_flashcards' %}">Flashcards</a>
+            <a href="{% url 'take_quiz' %}">Quiz</a>
+            <a href="{% url 'quiz_history' %}">History</a>
+            <a href="{% url 'study_progress' %}">Progress</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>AI Study Planner</h1>
+            <p class="subtitle">Smart scheduling based on your exam date, syllabus, and performance</p>
+            <a href="{% url 'create_study_plan' %}" class="btn-primary">+ Create New Study Plan</a>
+        </div>
+
+        {% if weak_topics %}
+        <div class="weak-topics-alert">
+            <h3>Focus Areas Based on Your Quiz Performance</h3>
+            <div class="topics-list">
+                {% for topic in weak_topics %}
+                <span class="topic-tag weak">{{ topic }}</span>
+                {% endfor %}
+            </div>
+            <p class="tip">These topics will be prioritized in your study schedule</p>
+        </div>
+        {% endif %}
+
+        {% if study_plans %}
+        <div class="plans-section">
+            <h2>Your Study Plans</h2>
+            <div class="plans-grid">
+                {% for plan in study_plans %}
+                <div class="plan-card">
+                    <div class="plan-header">
+                        <h3>{{ plan.title }}</h3>
+                        <span class="exam-date">Exam: {{ plan.exam_date|date:"F d, Y" }}</span>
+                    </div>
+                    <div class="plan-stats">
+                        <div class="stat">
+                            <span class="number">{{ plan.schedule_items.count }}</span>
+                            <span class="label">Tasks</span>
+                        </div>
+                        <div class="stat">
+                            <span class="number">{{ plan.daily_study_hours }}h</span>
+                            <span class="label">Daily</span>
+                        </div>
+                        <div class="stat">
+                            <span class="number">{{ plan.schedule_items.filter.is_completed.count|default:"0" }}</span>
+                            <span class="label">Done</span>
+                        </div>
+                    </div>
+                    <div class="plan-actions">
+                        <a href="{% url 'view_study_plan' plan.id %}" class="btn-view">View Schedule</a>
+                        <a href="{% url 'delete_study_plan' plan.id %}" class="btn-delete" onclick="return confirm('Delete this study plan?')">Delete</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📅</div>
+            <h2>No Study Plans Yet</h2>
+            <p>Create your first AI-powered study plan to get started!</p>
+            <ul class="features">
+                <li>Analyze your exam date and syllabus</li>
+                <li>Automatically create daily study schedules</li>
+                <li>Prioritize weak topics based on quiz performance</li>
+                <li>Adjust schedule when you skip or struggle with topics</li>
+            </ul>
+            <a href="{% url 'create_study_plan' %}" class="btn-primary">Create Study Plan</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.navbar {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.nav-links a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.nav-links a:hover, .nav-links a.active {
+    color: #667eea;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: white;
+}
+
+.page-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    opacity: 0.9;
+    margin-bottom: 1.5rem;
+}
+
+.btn-primary {
+    display: inline-block;
+    background: #fff;
+    color: #667eea;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+
+.weak-topics-alert {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid #ff6b6b;
+}
+
+.weak-topics-alert h3 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.topics-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.topic-tag {
+    background: #ff6b6b;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.85rem;
+}
+
+.tip {
+    color: #666;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.plans-section h2 {
+    color: white;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.plan-card {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    transition: transform 0.3s;
+}
+
+.plan-card:hover {
+    transform: translateY(-5px);
+}
+
+.plan-header h3 {
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.exam-date {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.plan-stats {
+    display: flex;
+    justify-content: space-around;
+    margin: 1.5rem 0;
+    padding: 1rem 0;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+}
+
+.stat {
+    text-align: center;
+}
+
+.stat .number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stat .label {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.plan-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-view, .btn-delete {
+    flex: 1;
+    padding: 0.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    text-align: center;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.btn-view {
+    background: #667eea;
+    color: white;
+}
+
+.btn-view:hover {
+    background: #5a6fd6;
+}
+
+.btn-delete {
+    background: #ff6b6b;
+    color: white;
+}
+
+.btn-delete:hover {
+    background: #ff5252;
+}
+
+.empty-state {
+    text-align: center;
+    background: white;
+    border-radius: 20px;
+    padding: 3rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.empty-state h2 {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+.features {
+    list-style: none;
+    text-align: left;
+    max-width: 400px;
+    margin: 0 auto 2rem;
+}
+
+.features li {
+    padding: 0.5rem 0;
+    color: #555;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.features li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #667eea;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .nav-links a {
+        margin: 0 0.5rem;
+    }
+    
+    .plans-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Mouse Trail Effect */
+.trail-dot {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: rgba(102, 126, 234, 0.6);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: trail-fade 0.8s ease-out forwards;
+}
+
+@keyframes trail-fade {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+}
+</style>
+
+<script>
+// Light Mouse Trail Effect
+(function() {
+    let lastX = 0;
+    let lastY = 0;
+    let throttle = false;
+    
+    document.addEventListener('mousemove', function(e) {
+        if (throttle) return;
+        
+        const dist = Math.sqrt(Math.pow(e.clientX - lastX, 2) + Math.pow(e.clientY - lastY, 2));
+        if (dist < 15) return;
+        
+        lastX = e.clientX;
+        lastY = e.clientY;
+        
+        throttle = true;
+        setTimeout(() => throttle = false, 30);
+        
+        const dot = document.createElement('div');
+        dot.className = 'trail-dot';
+        dot.style.left = (e.clientX - 4) + 'px';
+        dot.style.top = (e.clientY - 4) + 'px';
+        
+        const colors = [
+            'rgba(102, 126, 234, 0.6)',
+            'rgba(118, 75, 162, 0.6)',
+            'rgba(78, 205, 196, 0.5)',
+            'rgba(255, 107, 107, 0.5)'
+        ];
+        dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+        
+        document.body.appendChild(dot);
+        
+        setTimeout(() => {
+            dot.remove();
+        }, 800);
+    });
+})();
+</script>
+</body>
+</html>

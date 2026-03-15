@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Resources</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="resources-page">
+    <div class="container">
+        <div class="page-header">
+            <h1>Learning Resources</h1>
+            <p>AI-recommended resources based on your study materials and quiz performance</p>
+        </div>
+
+        <!-- Topics Section -->
+        {% if topics %}
+        <div class="topics-section">
+            <h2>Your Study Topics</h2>
+            <div class="topics-list">
+                {% for topic in topics %}
+                <span class="topic-tag">{{ topic }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Weak Areas -->
+        {% if weak_topics %}
+        <div class="weak-areas-section">
+            <h2>Areas to Improve</h2>
+            <p class="section-description">Based on your quiz performance, focus on these topics:</p>
+            <div class="topics-list">
+                {% for topic in weak_topics %}
+                <span class="topic-tag weak">{{ topic }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- AI Recommendations -->
+        {% if recommendations %}
+        <div class="recommendations-section">
+            <h2>Recommended for You</h2>
+            <div class="resources-grid">
+                {% for resource in recommendations %}
+                <div class="resource-card">
+                    <div class="resource-type-badge {{ resource.type }}">
+                        {{ resource.type|title }}
+                    </div>
+                    <h3 class="resource-title">{{ resource.title }}</h3>
+                    <a href="{{ resource.url }}" target="_blank" rel="noopener" class="resource-link">
+                        Visit Resource →
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Resource Categories -->
+        <div class="categories-section">
+            <h2>Browse by Category</h2>
+            
+            <div class="category-tabs">
+                <button class="tab-btn active" onclick="showCategory('all')">All</button>
+                <button class="tab-btn" onclick="showCategory('video')">Videos</button>
+                <button class="tab-btn" onclick="showCategory('article')">Articles</button>
+                <button class="tab-btn" onclick="showCategory('course')">Courses</button>
+                <button class="tab-btn" onclick="showCategory('documentation')">Documentation</button>
+            </div>
+
+            <div class="category-content" id="categoryContent">
+                {% if saved_resources %}
+                <div class="resources-list">
+                    {% for resource in saved_resources %}
+                    <div class="resource-item" data-category="{{ resource.resource_type }}">
+                        <div class="resource-icon">
+                            {% if resource.resource_type == 'video' %}🎥
+                            {% elif resource.resource_type == 'article' %}📄
+                            {% elif resource.resource_type == 'course' %}🎓
+                            {% elif resource.resource_type == 'documentation' %}📚
+                            {% elif resource.resource_type == 'book' %}📖
+                            {% elif resource.resource_type == 'tutorial' %}💻
+                            {% else %}🔗{% endif %}
+                        </div>
+                        <div class="resource-details">
+                            <h4>{{ resource.title }}</h4>
+                            <p class="resource-topic">Topic: {{ resource.topic }}</p>
+                            {% if resource.description %}
+                            <p class="resource-description">{{ resource.description }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="resource-meta">
+                            <span class="resource-type">{{ resource.resource_type|title }}</span>
+                            {% if resource.rating > 0 %}
+                            <span class="resource-rating">⭐ {{ resource.rating }}</span>
+                            {% endif %}
+                        </div>
+                        <a href="{{ resource.url }}" target="_blank" rel="noopener" class="resource-visit">
+                            Visit →
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="no-resources">
+                    <p>No saved resources yet. Upload study materials to get personalized recommendations.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Popular Platforms -->
+        <div class="platforms-section">
+            <h2>Popular Learning Platforms</h2>
+            <div class="platforms-grid">
+                <a href="https://www.khanacademy.org/" target="_blank" rel="noopener" class="platform-card">
+                    <div class="platform-icon">🎓</div>
+                    <h4>Khan Academy</h4>
+                    <p>Free courses on math, science, and more</p>
+                </a>
+                <a href="https://www.coursera.org/" target="_blank" rel="noopener" class="platform-card">
+                    <div class="platform-icon">📚</div>
+                    <h4>Coursera</h4>
+                    <p>University courses and certifications</p>
+                </a>
+                <a href="https://www.youtube.com/education" target="_blank" rel="noopener" class="platform-card">
+                    <div class="platform-icon">🎥</div>
+                    <h4>YouTube Education</h4>
+                    <p>Educational videos on any topic</p>
+                </a>
+                <a href="https://www.freecodecamp.org/" target="_blank" rel="noopener" class="platform-card">
+                    <div class="platform-icon">💻</div>
+                    <h4>freeCodeCamp</h4>
+                    <p>Free coding tutorials and projects</p>
+                </a>
+                <a href="https://developer.mozilla.org/" target="_blank" rel="noopener" class="platform-card">
+                    <div class="platform-icon">🌐</div>
+                    <h4>MDN Web Docs</h4>
+                    <p>Web development documentation</p>
+                </a>
+                <a href="https://www.w3schools.com/" target="_blank" rel="noopener" class="platform-card">
+                    <div class="platform-icon">📖</div>
+                    <h4>W3Schools</h4>
+                    <p>Web tutorials and references</p>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCategory(category) {
+    // Update active tab
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().includes(category) || 
+            (category === 'all' && btn.textContent === 'All')) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Filter resources
+    const items = document.querySelectorAll('.resource-item');
+    items.forEach(item => {
+        if (category === 'all' || item.dataset.category === category) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+</script>
+
+<style>
+.resources-page {
+    padding: 2rem 0;
+    min-height: calc(100vh - 200px);
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.page-header p {
+    color: #666;
+    margin: 0;
+}
+
+/* Topics Section */
+.topics-section, .weak-areas-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+}
+
+.topics-section h2, .weak-areas-section h2 {
+    font-size: 1.25rem;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.section-description {
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.topics-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.topic-tag {
+    padding: 0.5rem 1rem;
+    background: #e3f2fd;
+    color: #1976d2;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.topic-tag.weak {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* Recommendations Section */
+.recommendations-section {
+    margin-bottom: 2rem;
+}
+
+.recommendations-section h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.resources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.resource-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+
+.resource-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.resource-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    align-self: flex-start;
+}
+
+.resource-type-badge.video {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.resource-type-badge.article {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.resource-type-badge.course {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.resource-type-badge.documentation {
+    background: #fff3e0;
+    color: #ef6c00;
+}
+
+.resource-title {
+    font-size: 1.1rem;
+    color: #333;
+    margin: 0 0 1rem 0;
+    flex: 1;
+}
+
+.resource-link {
+    color: #4ecdc4;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.resource-link:hover {
+    color: #3dbdb4;
+}
+
+/* Categories Section */
+.categories-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.categories-section h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.category-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 1rem;
+}
+
+.tab-btn {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: none;
+    color: #666;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 6px;
+}
+
+.tab-btn:hover {
+    background: #f0f0f0;
+}
+
+.tab-btn.active {
+    background: #4ecdc4;
+    color: white;
+}
+
+.resources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.resource-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.resource-item:hover {
+    background: #e3f2fd;
+}
+
+.resource-icon {
+    font-size: 2rem;
+    width: 50px;
+    text-align: center;
+}
+
+.resource-details {
+    flex: 1;
+}
+
+.resource-details h4 {
+    margin: 0 0 0.25rem 0;
+    color: #333;
+}
+
+.resource-topic {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #4ecdc4;
+}
+
+.resource-description {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.resource-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: right;
+}
+
+.resource-type {
+    font-size: 0.8rem;
+    color: #999;
+    text-transform: uppercase;
+}
+
+.resource-rating {
+    font-size: 0.9rem;
+    color: #ff9800;
+}
+
+.resource-visit {
+    padding: 0.5rem 1rem;
+    background: #4ecdc4;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.resource-visit:hover {
+    background: #3dbdb4;
+}
+
+.no-resources {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+}
+
+/* Platforms Section */
+.platforms-section {
+    margin-bottom: 2rem;
+}
+
+.platforms-section h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.platforms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.platform-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.platform-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.platform-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.platform-card h4 {
+    margin: 0 0 0.5rem 0;
+    color: #333;
+}
+
+.platform-card p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .resources-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .resource-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .resource-meta {
+        text-align: center;
+    }
+    
+    .platforms-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Mouse Trail Effect */
+.trail-dot {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: rgba(102, 126, 234, 0.6);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: trail-fade 0.8s ease-out forwards;
+}
+
+@keyframes trail-fade {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.3); }
+}
+</style>
+
+<script>
+(function() {
+    let lastX = 0, lastY = 0, throttle = false;
+    document.addEventListener('mousemove', function(e) {
+        if (throttle) return;
+        const dist = Math.sqrt(Math.pow(e.clientX - lastX, 2) + Math.pow(e.clientY - lastY, 2));
+        if (dist < 15) return;
+        lastX = e.clientX; lastY = e.clientY;
+        throttle = true;
+        setTimeout(() => throttle = false, 30);
+        const dot = document.createElement('div');
+        dot.className = 'trail-dot';
+        dot.style.left = (e.clientX - 4) + 'px';
+        dot.style.top = (e.clientY - 4) + 'px';
+        const colors = ['rgba(102, 126, 234, 0.6)', 'rgba(118, 75, 162, 0.6)', 'rgba(78, 205, 196, 0.5)', 'rgba(255, 107, 107, 0.5)'];
+        dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+        document.body.appendChild(dot);
+        setTimeout(() => dot.remove(), 800);
+    });
+})();
+</script>
+</body>
+</html>

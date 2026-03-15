@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Study Material</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="upload-page">
+    <div class="container">
+        <div class="page-header">
+            <h1>Upload Study Material</h1>
+            <p>Upload your study documents and our AI will generate flashcards and quizzes automatically.</p>
+        </div>
+
+        <div class="upload-container">
+            <form method="post" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="title">Material Title</label>
+                    <input type="text" id="title" name="title" placeholder="e.g., Python Programming Basics" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Upload Document</label>
+                    <div class="file-upload-area" id="dropZone">
+                        <input type="file" id="document" name="document" accept=".txt,.docx,.pdf" required hidden>
+                        <div class="upload-placeholder">
+                            <div class="upload-icon">📄</div>
+                            <p class="upload-text">Drag and drop your file here</p>
+                            <p class="upload-subtext">or click to browse</p>
+                            <p class="file-types">Supported: PDF, DOCX, TXT</p>
+                        </div>
+                        <div class="file-selected" id="fileSelected" style="display: none;">
+                            <div class="file-icon">📎</div>
+                            <div class="file-info">
+                                <p class="file-name" id="fileName"></p>
+                                <p class="file-size" id="fileSize"></p>
+                            </div>
+                            <button type="button" class="remove-file" id="removeFile">×</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="upload-progress" id="uploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-text">Processing document with AI... <span id="progressPercent">0%</span></p>
+                    <p class="progress-steps" id="progressSteps">Extracting text...</p>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{% url 'examprep_dashboard' %}" class="btn-secondary">Cancel</a>
+                    <button type="submit" class="btn-primary" id="submitBtn">
+                        <span>Upload & Process</span>
+                        <span class="btn-icon">→</span>
+                    </button>
+                </div>
+            </form>
+
+            <div class="upload-info">
+                <h3>What happens next?</h3>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Text Extraction</h4>
+                            <p>Our AI extracts all text content from your document.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Smart Analysis</h4>
+                            <p>Key concepts are identified and summarized automatically.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Flashcard Generation</h4>
+                            <p>AI generates flashcards from important concepts.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h4>Quiz Creation</h4>
+                            <p>Custom quiz questions are generated to test your knowledge.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tips">
+                    <h4>Tips for best results</h4>
+                    <ul>
+                        <li>Use clear, well-formatted documents</li>
+                        <li>Ensure text is selectable (not scanned images)</li>
+                        <li>Documents with structured content work best</li>
+                        <li>Maximum file size: 50MB</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('document');
+    const fileSelected = document.getElementById('fileSelected');
+    const uploadPlaceholder = document.querySelector('.upload-placeholder');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const removeFile = document.getElementById('removeFile');
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressFill = document.getElementById('progressFill');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressSteps = document.getElementById('progressSteps');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Click to browse
+    dropZone.addEventListener('click', function(e) {
+        if (e.target !== removeFile) {
+            fileInput.click();
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            showFile(this.files[0]);
+        }
+    });
+
+    // Drag and drop
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', function() {
+        this.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            const validTypes = ['.txt', '.docx', '.pdf'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (validTypes.includes(ext)) {
+                fileInput.files = files;
+                showFile(file);
+            } else {
+                alert('Please upload a valid file type (PDF, DOCX, or TXT)');
+            }
+        }
+    });
+
+    function showFile(file) {
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        uploadPlaceholder.style.display = 'none';
+        fileSelected.style.display = 'flex';
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    removeFile.addEventListener('click', function() {
+        fileInput.value = '';
+        uploadPlaceholder.style.display = 'block';
+        fileSelected.style.display = 'none';
+    });
+
+    // Form submission with progress simulation
+    uploadForm.addEventListener('submit', function(e) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Processing...</span><span class="btn-icon">⏳</span>';
+        uploadProgress.style.display = 'block';
+        
+        const steps = [
+            'Extracting text...',
+            'Analyzing content...',
+            'Identifying key concepts...',
+            'Generating flashcards...',
+            'Creating quiz questions...',
+            'Finalizing...'
+        ];
+        
+        let progress = 0;
+        const interval = setInterval(function() {
+            progress += Math.random() * 15;
+            if (progress > 100) progress = 100;
+            
+            progressFill.style.width = progress + '%';
+            progressPercent.textContent = Math.round(progress) + '%';
+            
+            const stepIndex = Math.min(Math.floor(progress / 20), steps.length - 1);
+            progressSteps.textContent = steps[stepIndex];
+            
+            if (progress >= 100) {
+                clearInterval(interval);
+            }
+        }, 500);
+    });
+});
+</script>
+
+<style>
+.upload-page {
+    padding: 2rem 0;
+    min-height: calc(100vh - 200px);
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.page-header p {
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.upload-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+}
+
+.upload-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input[type="text"]:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.file-upload-area {
+    border: 2px dashed #ccc;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.file-upload-area:hover,
+.file-upload-area.dragover {
+    border-color: #4ecdc4;
+    background: #f0fffe;
+}
+
+.upload-placeholder {
+    text-align: center;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    font-size: 1.1rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.upload-subtext {
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.file-types {
+    font-size: 0.85rem;
+    color: #999;
+}
+
+.file-selected {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.file-icon {
+    font-size: 2rem;
+}
+
+.file-info {
+    flex: 1;
+    text-align: left;
+}
+
+.file-name {
+    font-weight: 500;
+    margin: 0 0 0.25rem 0;
+    color: #333;
+}
+
+.file-size {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0;
+}
+
+.remove-file {
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.remove-file:hover {
+    background: #ee5a5a;
+}
+
+.upload-progress {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ecdc4, #44a08d);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.progress-steps {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+}
+
+.btn-secondary {
+    padding: 0.75rem 1.5rem;
+    background: #f0f0f0;
+    color: #333;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #4ecdc4, #44a08d);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3dbdb4, #3a8f7d);
+    transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.btn-icon {
+    font-size: 1.1rem;
+}
+
+/* Upload Info */
+.upload-info {
+    padding: 1rem;
+}
+
+.upload-info h3 {
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.step {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.step-number {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #4ecdc4, #44a08d);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.step-content h4 {
+    margin: 0 0 0.25rem 0;
+    color: #333;
+    font-size: 1rem;
+}
+
+.step-content p {
+    margin: 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.tips {
+    background: #fff9e6;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border-left: 4px solid #ffc107;
+}
+
+.tips h4 {
+    margin: 0 0 1rem 0;
+    color: #856404;
+}
+
+.tips ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: #856404;
+}
+
+.tips li {
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .upload-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .upload-info {
+        order: -1;
+    }
+}
+</style>
+</body>
+</html>

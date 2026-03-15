@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Notes Generator - AI Exam Prep</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="notes-page">
+    <nav class="navbar">
+        <div class="nav-brand">📝 Auto Notes Generator</div>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Vision App</a>
+            <a href="{% url 'examprep_dashboard' %}">Exam Prep</a>
+            <a href="{% url 'auto_notes_generator' %}">My Notes</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="hero-section">
+            <h1>🤖 AI-Powered Notes Generator</h1>
+            <p>Upload your lecture notes, PDFs, or images and let AI convert them into structured short notes and mind maps!</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-card">
+                <h2>Upload Your Study Material</h2>
+                <form method="post" action="{% url 'upload_notes_file' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="title">Notes Title (Optional)</label>
+                        <input type="text" id="title" name="title" placeholder="e.g., Physics Chapter 1 Notes">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="file">Select File</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="file" name="file" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg" required>
+                            <div class="file-drop-zone">
+                                <span class="icon">📁</span>
+                                <p>Drag & drop or click to upload</p>
+                                <small>Supported: PDF, DOCX, TXT, Images</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary">
+                        <span>🚀 Generate Notes</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if notes %}
+        <div class="notes-list-section">
+            <h2>Your Generated Notes</h2>
+            <div class="notes-grid">
+                {% for note in notes %}
+                <div class="note-card">
+                    <div class="note-header">
+                        <span class="file-type-badge {{ note.file_type }}">{{ note.file_type|upper }}</span>
+                        <span class="status-badge {{ note.processing_status }}">{{ note.processing_status|title }}</span>
+                    </div>
+                    <h3>{{ note.title }}</h3>
+                    <p class="note-date">Created: {{ note.created_at|date:"F d, Y" }}</p>
+                    
+                    {% if note.processing_status == 'completed' %}
+                    <div class="note-features">
+                        <span class="feature">📝 Short Notes</span>
+                        <span class="feature">🧠 Mind Map</span>
+                        {% if note.key_points %}
+                        <span class="feature">📌 {{ note.key_points|length }} Key Points</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="note-actions">
+                        {% if note.processing_status == 'completed' %}
+                        <a href="{% url 'view_generated_notes' note.id %}" class="btn-view">View Notes</a>
+                        {% endif %}
+                        <a href="{% url 'delete_generated_notes' note.id %}" class="btn-delete">Delete</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <span class="icon">📚</span>
+            <h3>No Notes Yet</h3>
+            <p>Upload your first study material to get AI-generated notes and mind maps!</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.navbar {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.nav-links a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+}
+
+.nav-links a:hover {
+    color: #667eea;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.hero-section {
+    text-align: center;
+    color: white;
+    margin-bottom: 3rem;
+}
+
+.hero-section h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.hero-section p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.upload-section {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 3rem;
+}
+
+.upload-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.upload-card h2 {
+    color: #333;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #555;
+    font-weight: 500;
+}
+
+.form-group input[type="text"] {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-group input[type="text"]:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.file-input-wrapper {
+    position: relative;
+}
+
+.file-input-wrapper input[type="file"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.file-drop-zone {
+    border: 2px dashed #667eea;
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    background: #f8f9ff;
+    transition: all 0.3s;
+}
+
+.file-drop-zone:hover {
+    background: #eef0ff;
+}
+
+.file-drop-zone .icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.file-drop-zone p {
+    color: #667eea;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.file-drop-zone small {
+    color: #888;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.notes-list-section {
+    margin-top: 3rem;
+}
+
+.notes-list-section h2 {
+    color: white;
+    margin-bottom: 1.5rem;
+}
+
+.notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.note-card {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    transition: transform 0.3s;
+}
+
+.note-card:hover {
+    transform: translateY(-5px);
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.file-type-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.file-type-badge.pdf { background: #ffebee; color: #c62828; }
+.file-type-badge.docx { background: #e3f2fd; color: #1565c0; }
+.file-type-badge.txt { background: #f3e5f5; color: #6a1b9a; }
+.file-type-badge.image { background: #e8f5e9; color: #2e7d32; }
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.completed { background: #e8f5e9; color: #2e7d32; }
+.status-badge.processing { background: #fff3e0; color: #ef6c00; }
+.status-badge.pending { background: #f5f5f5; color: #616161; }
+.status-badge.failed { background: #ffebee; color: #c62828; }
+
+.note-card h3 {
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.note-date {
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.note-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.feature {
+    background: #f0f0f0;
+    padding: 0.25rem 0.5rem;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.note-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.note-actions a {
+    flex: 1;
+    padding: 0.5rem;
+    text-align: center;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.btn-view {
+    background: #667eea;
+    color: white;
+}
+
+.btn-view:hover {
+    background: #5a6fd6;
+}
+
+.btn-delete {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.btn-delete:hover {
+    background: #ffcdd2;
+}
+
+.empty-state {
+    text-align: center;
+    color: white;
+    padding: 4rem 2rem;
+}
+
+.empty-state .icon {
+    font-size: 4rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .nav-links a {
+        margin: 0 0.75rem;
+    }
+    
+    .hero-section h1 {
+        font-size: 1.8rem;
+    }
+    
+    .notes-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+// File input visual feedback
+document.getElementById('file').addEventListener('change', function(e) {
+    const fileName = e.target.files[0]?.name || 'Drag & drop or click to upload';
+    const dropZone = document.querySelector('.file-drop-zone p');
+    dropZone.textContent = fileName;
+});
+</script>
+</body>
+</html>

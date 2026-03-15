@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Delete</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="confirm-delete-page">
+    <div class="container">
+        <div class="confirm-card">
+            <div class="warning-icon">⚠️</div>
+            <h1>Delete Study Material?</h1>
+            <p class="material-name">"{{ material.title }}"</p>
+            
+            <div class="warning-message">
+                <p>This action cannot be undone. This will permanently delete:</p>
+                <ul>
+                    <li>The study material file</li>
+                    <li>All associated flashcards ({{ material.flashcards.count }})</li>
+                    <li>All associated quizzes ({{ material.quizzes.count }})</li>
+                </ul>
+            </div>
+
+            <form method="post" class="confirm-actions">
+                {% csrf_token %}
+                <a href="{% url 'study_materials_list' %}" class="btn-secondary">Cancel</a>
+                <button type="submit" class="btn-danger">Yes, Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.confirm-delete-page {
+    padding: 4rem 0;
+    min-height: calc(100vh - 200px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.confirm-card {
+    background: white;
+    padding: 3rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+}
+
+.warning-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.confirm-card h1 {
+    font-size: 1.75rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.material-name {
+    font-size: 1.1rem;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 1.5rem;
+}
+
+.warning-message {
+    background: #ffebee;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+.warning-message p {
+    margin: 0 0 1rem 0;
+    color: #c62828;
+    font-weight: 500;
+}
+
+.warning-message ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #666;
+}
+
+.warning-message li {
+    margin-bottom: 0.5rem;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #f0f0f0;
+    color: #333;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-danger:hover {
+    background: #d32f2f;
+}
+
+@media (max-width: 768px) {
+    .confirm-card {
+        padding: 2rem;
+        margin: 1rem;
+    }
+    
+    .confirm-actions {
+        flex-direction: column;
+    }
+}
+</style>
+</body>
+</html>

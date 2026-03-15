@@ -56,6 +56,11 @@
                             <span style="font-size: 0.9rem; white-space: nowrap;">{{ user.username|truncatechars:20 }}</span>
                         </div>
                     </li>
+                    <li class="nav-item" style="margin-right: 10px;">
+                        <a class="nav-link" href="{% url 'examprep_dashboard' %}" style="background-color: #4ecdc4; color: white !important; padding: 0.4rem 1rem; border-radius: 4px; font-weight: 500;">
+                            <i class="fa fa-graduation-cap"></i> Exam Prep
+                        </a>
+                    </li>
                     {% endif %}
                     <li class="nav-item" style="margin-right: 10px;">
                         <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button">

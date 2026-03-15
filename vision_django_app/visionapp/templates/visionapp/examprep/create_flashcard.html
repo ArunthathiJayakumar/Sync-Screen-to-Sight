@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Flashcard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="create-flashcard-page">
+    <div class="container">
+        <div class="page-header">
+            <h1>Create Flashcard</h1>
+            <a href="{% url 'view_flashcards' %}" class="btn-secondary">← Back to Flashcards</a>
+        </div>
+
+        <div class="form-container">
+            <form method="post" class="flashcard-form">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="material_id">Link to Study Material (Optional)</label>
+                    <select name="material_id" id="material_id">
+                        <option value="">-- None --</option>
+                        {% for material in materials %}
+                        <option value="{{ material.id }}">{{ material.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="question">Question *</label>
+                    <textarea name="question" id="question" rows="3" placeholder="Enter your question here..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="answer">Answer *</label>
+                    <textarea name="answer" id="answer" rows="5" placeholder="Enter the answer here..." required></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{% url 'view_flashcards' %}" class="btn-secondary">Cancel</a>
+                    <button type="submit" class="btn-primary">Create Flashcard</button>
+                </div>
+            </form>
+
+            <div class="tips-section">
+                <h3>Tips for Great Flashcards</h3>
+                <ul>
+                    <li><strong>Keep questions specific</strong> - Ask one thing at a time</li>
+                    <li><strong>Use your own words</strong> - This helps with understanding</li>
+                    <li><strong>Include context</strong> - Add examples when helpful</li>
+                    <li><strong>Be concise</strong> - Shorter cards are easier to review</li>
+                    <li><strong>Test understanding</strong> - Ask "why" and "how" questions</li>
+                </ul>
+
+                <div class="example-card">
+                    <h4>Example Flashcard</h4>
+                    <div class="example-question">
+                        <strong>Q:</strong> What is the time complexity of binary search?
+                    </div>
+                    <div class="example-answer">
+                        <strong>A:</strong> O(log n) - Binary search divides the search space in half with each step.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.create-flashcard-page {
+    padding: 2rem 0;
+    min-height: calc(100vh - 200px);
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    color: #333;
+    margin: 0;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #f0f0f0;
+    color: #333;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.form-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+}
+
+.flashcard-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #4ecdc4, #44a08d);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #3dbdb4, #3a8f7d);
+    transform: translateY(-2px);
+}
+
+/* Tips Section */
+.tips-section {
+    padding: 1rem;
+}
+
+.tips-section h3 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.tips-section ul {
+    margin: 0 0 2rem 0;
+    padding-left: 1.5rem;
+    color: #666;
+}
+
+.tips-section li {
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+
+.example-card {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border-left: 4px solid #4ecdc4;
+}
+
+.example-card h4 {
+    margin: 0 0 1rem 0;
+    color: #333;
+}
+
+.example-question {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 8px;
+}
+
+.example-answer {
+    padding: 0.75rem;
+    background: white;
+    border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+    .form-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .tips-section {
+        order: -1;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+</style>
+</body>
+</html>

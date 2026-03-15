@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import subprocess
 import sys
+import os
 
 try:
     import pandas as pd
@@ -13,36 +14,37 @@ except Exception:
 # Auto-install and import mediapipe
 _mediapipe_installed = False
 mp = None
+_use_old_api = False
 
 def install_mediapipe():
-    """Install mediapipe if not available"""
+    """Report that mediapipe is not available"""
     global _mediapipe_installed, mp
-    try:
-        print('[DISTANCE] Installing mediapipe==0.10.14...')
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'mediapipe==0.10.14'])
-        print('[DISTANCE] Mediapipe installed successfully!')
-        # Try importing again after installation
-        import mediapipe as mp_temp
-        mp = mp_temp
-        _mediapipe_installed = True
-        print('[DISTANCE] Mediapipe imported successfully after installation')
-        return True
-    except Exception as e:
-        print(f'[DISTANCE] Failed to auto-install mediapipe: {e}')
-        return False
+    print('[DISTANCE] Mediapipe is not available. Please install using: pip install mediapipe==0.10.32')
+    return False
 
 try:
     import mediapipe as mp
-    # Test if we can access face_detection
-    _ = mp.solutions.face_detection
     _mediapipe_installed = True
-    print('[DISTANCE] Mediapipe imported successfully, solutions API available')
+    print('[DISTANCE] Mediapipe imported successfully')
+    # Check which API version is available
+    try:
+        from mediapipe.solutions import face_detection
+        _use_old_api = True
+        print('[DISTANCE] Using old mediapipe API (solutions)')
+    except ImportError:
+        try:
+            from mediapipe.tasks.vision import FaceDetector
+            _use_old_api = False
+            print('[DISTANCE] Using new mediapipe API (tasks)')
+        except ImportError:
+            print('[DISTANCE] Could not find either old or new mediapipe API')
+            _mediapipe_installed = False
 except Exception as e:
-    print(f'[DISTANCE] Mediapipe import failed: {e}. Attempting auto-install...')
-    if not install_mediapipe():
-        print('[DISTANCE] Warning: Could not install mediapipe')
-        mp = None
-        _mediapipe_installed = False
+    print(f'[DISTANCE] Mediapipe import failed: {e}')
+    install_mediapipe()
+    print('[DISTANCE] Warning: Could not install mediapipe')
+    mp = None
+    _mediapipe_installed = False
 
 
 class DistanceCalculator:
@@ -110,29 +112,123 @@ class DistanceCalculator:
     def __init__(self):
         # Check for mediapipe availability dynamically (not just at import time)
         mediapipe_available = False
-        try:
-            import mediapipe as mp_check
-            _ = mp_check.solutions.face_detection
-            mediapipe_available = True
-            print('[DISTANCE] Mediapipe found and solutions available')
-        except Exception as e:
-            print(f'[DISTANCE] Mediapipe check failed: {e}. Will attempt to use global mp.')
-            if mp is not None:
-                mediapipe_available = True
+        self.use_old_api = False
+        self.use_haar_cascade = False
+        self.face_detector = None  # For new API
+        self.face_detection = None  # For old API
+        self.haar_face_cascade = None  # For Haar Cascade fallback
         
-        # If mediapipe is available, create face detection instance
-        if mediapipe_available and mp is not None:
+        try:
+            # Try new API (mediapipe 0.10.30+)
+            from mediapipe.tasks.python.vision import FaceDetector
+            from mediapipe.tasks.python.vision.face_detector import FaceDetectorOptions
+            from mediapipe.tasks.python.core.base_options import BaseOptions
+            
+            # Look for the model file in common locations
+            import os
+            model_path = None
+            possible_paths = [
+                'face_detection_short_range.tflite',
+                os.path.join(os.getcwd(), 'face_detection_short_range.tflite'),
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    model_path = path
+                    break
+            
+            # If model not found, try to download it
+            if not model_path or not os.path.exists(model_path):
+                print('[DISTANCE] Face detection model not found locally, attempting to download...')
+                try:
+                    import urllib.request
+                    download_url = 'https://storage.googleapis.com/mediapipe-assets/face_detection_short_range.tflite'
+                    model_path = 'face_detection_short_range.tflite'
+                    urllib.request.urlretrieve(download_url, model_path)
+                    print(f'[DISTANCE] Model downloaded to {model_path}')
+                except Exception as download_err:
+                    print(f'[DISTANCE] Failed to download model: {download_err}')
+                    model_path = None
+            
+            if model_path and os.path.exists(model_path):
+                try:
+                    # Create BaseOptions with the model path
+                    base_options = BaseOptions(model_asset_path=model_path)
+                    # Create FaceDetectorOptions
+                    options = FaceDetectorOptions(
+                        base_options=base_options,
+                        min_detection_confidence=0.5
+                    )
+                    # Create the detector
+                    self.face_detector = FaceDetector.create_from_options(options)
+                    self.use_old_api = False
+                    mediapipe_available = True
+                    print('[DISTANCE] FaceDetector (new API) created successfully')
+                except Exception as e:
+                    print(f'[DISTANCE] Failed to create new API FaceDetector with options: {e}')
+                    # Fallback to Haar Cascade
+                    print('[DISTANCE] Falling back to Haar Cascade for face detection')
+                    self._init_haar_cascade()
+                    if self.haar_face_cascade is not None:
+                        self.use_haar_cascade = True
+                        mediapipe_available = True
+            else:
+                print('[DISTANCE] Could not locate or download face detection model')
+                # Fallback to Haar Cascade
+                print('[DISTANCE] Falling back to Haar Cascade for face detection')
+                self._init_haar_cascade()
+                if self.haar_face_cascade is not None:
+                    self.use_haar_cascade = True
+                    mediapipe_available = True
+                    
+        except ImportError as e:
+            print(f'[DISTANCE] New API not available: {e}. Trying old API...')
+            # Try old API
             try:
-                self.face_detection = mp.solutions.face_detection.FaceDetection(
+                import mediapipe as mp_check
+                _ = mp_check.solutions.face_detection
+                self.face_detection = mp_check.solutions.face_detection.FaceDetection(
                     model_selection=0, min_detection_confidence=0.75
                 )
-                print('[DISTANCE] FaceDetection created successfully')
+                self.use_old_api = True
+                mediapipe_available = True
+                print('[DISTANCE] FaceDetection (old API) created successfully')
             except Exception as e:
-                print(f'[DISTANCE] Failed to create FaceDetection: {e}')
-                self.face_detection = None
-        else:
-            print('[DISTANCE] Mediapipe not available, face_detection set to None')
+                print(f'[DISTANCE] Failed to create old API FaceDetection: {e}')
+                # Fallback to Haar Cascade
+                print('[DISTANCE] Falling back to Haar Cascade for face detection')
+                self._init_haar_cascade()
+                if self.haar_face_cascade is not None:
+                    self.use_haar_cascade = True
+                    mediapipe_available = True
+        except Exception as e:
+            print(f'[DISTANCE] Unexpected error during initialization: {e}')
+            # Fallback to Haar Cascade
+            print('[DISTANCE] Falling back to Haar Cascade for face detection')
+            self._init_haar_cascade()
+            if self.haar_face_cascade is not None:
+                self.use_haar_cascade = True
+                mediapipe_available = True
+        
+        if not mediapipe_available:
+            print('[DISTANCE] Mediapipe not available and Haar Cascade initialization failed, face detection set to None')
             self.face_detection = None
+            self.face_detector = None
+            self.haar_face_cascade = None
+    
+    def _init_haar_cascade(self):
+        """Initialize OpenCV's Haar Cascade classifier as fallback"""
+        try:
+            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            self.haar_face_cascade = cv2.CascadeClassifier(cascade_path)
+            if self.haar_face_cascade.empty():
+                print('[DISTANCE] Failed to load Haar Cascade')
+                self.haar_face_cascade = None
+            else:
+                print('[DISTANCE] Haar Cascade loaded successfully')
+        except Exception as e:
+            print(f'[DISTANCE] Error loading Haar Cascade: {e}')
+            self.haar_face_cascade = None
 
     def run_config(self):
         """it is used to for the initial configuration of the system where the user needs to measure few distances in cm corresponding to different distances in pixel  

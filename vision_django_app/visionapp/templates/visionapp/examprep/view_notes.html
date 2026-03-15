@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ notes.title }} - Generated Notes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="notes-view-page">
+    <nav class="navbar">
+        <div class="nav-brand">📝 {{ notes.title }}</div>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Vision App</a>
+            <a href="{% url 'auto_notes_generator' %}">All Notes</a>
+            <a href="{% url 'delete_generated_notes' notes.id %}" class="delete-link">Delete</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="notes-header">
+            <h1>{{ notes.title }}</h1>
+            <div class="meta-info">
+                <span class="badge {{ notes.file_type }}">{{ notes.file_type|upper }}</span>
+                <span class="date">Generated on {{ notes.created_at|date:"F d, Y" }}</span>
+            </div>
+        </div>
+
+        <div class="content-tabs">
+            <button class="tab-btn active" onclick="showTab('short-notes')">📝 Short Notes</button>
+            <button class="tab-btn" onclick="showTab('mind-map')">🧠 Mind Map</button>
+            <button class="tab-btn" onclick="showTab('key-points')">📌 Key Points</button>
+            {% if notes.important_definitions %}
+            <button class="tab-btn" onclick="showTab('definitions')">📖 Definitions</button>
+            {% endif %}
+            {% if notes.formulas %}
+            <button class="tab-btn" onclick="showTab('formulas')">🔢 Formulas</button>
+            {% endif %}
+        </div>
+
+        <div class="tab-content">
+            <!-- Short Notes Tab -->
+            <div id="short-notes" class="tab-panel active">
+                <div class="notes-card">
+                    <h2>Summary</h2>
+                    <div class="summary-text">
+                        {{ notes.short_notes|linebreaks }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mind Map Tab -->
+            <div id="mind-map" class="tab-panel">
+                <div class="mind-map-card">
+                    <h2>Visual Mind Map</h2>
+                    {% if notes.mind_map_svg %}
+                    <div class="mind-map-container">
+                        {{ notes.mind_map_svg|safe }}
+                    </div>
+                    {% else %}
+                    <div class="mind-map-data">
+                        <h3>{{ notes.mind_map_data.root }}</h3>
+                        {% if notes.mind_map_data.branches %}
+                        <ul class="mind-map-tree">
+                            {% for branch in notes.mind_map_data.branches %}
+                            <li>
+                                <strong>{{ branch.label }}</strong>
+                                {% if branch.children %}
+                                <ul>
+                                    {% for child in branch.children %}
+                                    <li>{{ child }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Key Points Tab -->
+            <div id="key-points" class="tab-panel">
+                <div class="key-points-card">
+                    <h2>Key Points</h2>
+                    {% if notes.key_points %}
+                    <ul class="key-points-list">
+                        {% for point in notes.key_points %}
+                        <li class="key-point-item">
+                            <span class="point-number">{{ forloop.counter }}</span>
+                            <span class="point-text">{{ point }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="empty-message">No key points extracted.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Definitions Tab -->
+            {% if notes.important_definitions %}
+            <div id="definitions" class="tab-panel">
+                <div class="definitions-card">
+                    <h2>Important Definitions</h2>
+                    <div class="definitions-list">
+                        {% for def in notes.important_definitions %}
+                        <div class="definition-item">
+                            <h3>{{ def.term }}</h3>
+                            <p>{{ def.definition }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Formulas Tab -->
+            {% if notes.formulas %}
+            <div id="formulas" class="tab-panel">
+                <div class="formulas-card">
+                    <h2>Formulas & Equations</h2>
+                    <div class="formulas-list">
+                        {% for formula in notes.formulas %}
+                        <div class="formula-item">
+                            <code>{{ formula }}</code>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #f5f7fa;
+    min-height: 100vh;
+}
+
+.navbar {
+    background: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-brand {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.nav-links a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+    color: #667eea;
+    font-weight: 500;
+}
+
+.nav-links a.delete-link {
+    color: #e74c3c;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.notes-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.notes-header h1 {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.meta-info {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    align-items: center;
+}
+
+.badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge.pdf { background: #ffebee; color: #c62828; }
+.badge.docx { background: #e3f2fd; color: #1565c0; }
+.badge.txt { background: #f3e5f5; color: #6a1b9a; }
+.badge.image { background: #e8f5e9; color: #2e7d32; }
+
+.date {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.content-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.tab-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: white;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #555;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.tab-btn:hover {
+    background: #f0f0f0;
+}
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.tab-content {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.notes-card h2,
+.mind-map-card h2,
+.key-points-card h2,
+.definitions-card h2,
+.formulas-card h2 {
+    color: #333;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #667eea;
+}
+
+.summary-text {
+    line-height: 1.8;
+    color: #444;
+    font-size: 1.05rem;
+}
+
+.mind-map-container {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+}
+
+.mind-map-container svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.mind-map-data {
+    text-align: center;
+}
+
+.mind-map-data h3 {
+    color: #667eea;
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.mind-map-tree {
+    list-style: none;
+    text-align: left;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.mind-map-tree > li {
+    background: #f8f9ff;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    border-left: 4px solid #667eea;
+}
+
+.mind-map-tree ul {
+    list-style: none;
+    margin-top: 0.5rem;
+    padding-left: 1.5rem;
+}
+
+.mind-map-tree ul li {
+    padding: 0.25rem 0;
+    color: #666;
+}
+
+.key-points-list {
+    list-style: none;
+}
+
+.key-point-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9ff;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    transition: transform 0.3s;
+}
+
+.key-point-item:hover {
+    transform: translateX(5px);
+}
+
+.point-number {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.point-text {
+    color: #444;
+    line-height: 1.6;
+}
+
+.definitions-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.definition-item {
+    background: #f8f9ff;
+    padding: 1.5rem;
+    border-radius: 10px;
+    border-left: 4px solid #4CAF50;
+}
+
+.definition-item h3 {
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.definition-item p {
+    color: #666;
+    line-height: 1.6;
+}
+
+.formulas-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.formula-item {
+    background: #f5f5f5;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.formula-item code {
+    font-size: 1.2rem;
+    color: #333;
+    background: none;
+}
+
+.empty-message {
+    text-align: center;
+    color: #888;
+    padding: 2rem;
+}
+
+@media (max-width: 768px) {
+    .content-tabs {
+        flex-wrap: nowrap;
+        overflow-x: scroll;
+    }
+    
+    .tab-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .container {
+        padding: 1rem;
+    }
+}
+</style>
+
+<script>
+function showTab(tabId) {
+    // Hide all panels
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected panel
+    document.getElementById(tabId).classList.add('active');
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

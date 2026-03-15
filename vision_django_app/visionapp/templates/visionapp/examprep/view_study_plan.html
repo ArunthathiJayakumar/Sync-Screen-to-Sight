@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ study_plan.title }} - Study Plan</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="view-plan-page">
+    <nav class="navbar">
+        <div class="nav-brand">📚 AI Study Planner</div>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Vision App</a>
+            <a href="{% url 'examprep_dashboard' %}">Exam Prep</a>
+            <a href="{% url 'study_planner' %}">Study Planner</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="plan-header-card">
+            <div class="plan-info">
+                <h1>{{ study_plan.title }}</h1>
+                <div class="plan-meta">
+                    <span class="meta-item">📅 Exam: {{ study_plan.exam_date|date:"F d, Y" }}</span>
+                    <span class="meta-item">⏱️ {{ study_plan.daily_study_hours }} hours/day</span>
+                    <span class="meta-item">📊 {{ progress_percentage }}% Complete</span>
+                </div>
+            </div>
+            <div class="progress-ring">
+                <svg viewBox="0 0 100 100">
+                    <circle class="progress-bg" cx="50" cy="50" r="45"/>
+                    <circle class="progress-bar" cx="50" cy="50" r="45" 
+                            style="stroke-dashoffset: {{ 283|add:progress_percentage|add:-283 }}"/>
+                </svg>
+                <div class="progress-text">{{ progress_percentage }}%</div>
+            </div>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-value">{{ total_items }}</span>
+                <span class="stat-label">Total Tasks</span>
+            </div>
+            <div class="stat-item completed">
+                <span class="stat-value">{{ completed_items }}</span>
+                <span class="stat-label">Completed</span>
+            </div>
+            <div class="stat-item remaining">
+                <span class="stat-value">{{ total_items|add:completed_items|add:-1|add:1 }}</span>
+                <span class="stat-label">Remaining</span>
+            </div>
+        </div>
+
+        {% if upcoming_items %}
+        <div class="upcoming-section">
+            <h2>Up Next</h2>
+            <div class="upcoming-list">
+                {% for item in upcoming_items %}
+                <div class="upcoming-item">
+                    <div class="item-date">{{ item.date|date:"M d" }}</div>
+                    <div class="item-content">
+                        <h4>{{ item.topic }}</h4>
+                        <p>{{ item.description|truncatewords:10 }}</p>
+                    </div>
+                    <div class="item-time">{{ item.estimated_minutes }} min</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="schedule-section">
+            <h2>Full Schedule</h2>
+            {% for date, items in schedule_by_date.items %}
+            <div class="day-card">
+                <div class="day-header">
+                    <h3>{{ date|date:"l, F d, Y" }}</h3>
+                    <span class="day-total">{{ items|length }} tasks</span>
+                </div>
+                <div class="tasks-list">
+                    {% for item in items %}
+                    <div class="task-item {% if item.is_completed %}completed{% endif %} {% if item.is_skipped %}skipped{% endif %}">
+                        <div class="task-status">
+                            {% if item.is_completed %}
+                            <span class="status-icon done">✓</span>
+                            {% elif item.is_skipped %}
+                            <span class="status-icon skip">⊘</span>
+                            {% else %}
+                            <span class="status-icon pending">○</span>
+                            {% endif %}
+                        </div>
+                        <div class="task-content">
+                            <h4>{{ item.topic }}</h4>
+                            <p>{{ item.description }}</p>
+                            {% if item.completion_notes %}
+                            <span class="notes">Notes: {{ item.completion_notes }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="task-meta">
+                            <span class="duration">{{ item.estimated_minutes }} min</span>
+                            {% if not item.is_completed and not item.is_skipped %}
+                            <a href="{% url 'update_schedule_item' item.id %}" class="btn-action">Update</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="actions-footer">
+            <a href="{% url 'study_planner' %}" class="btn-secondary">← Back to Plans</a>
+            <a href="{% url 'delete_study_plan' study_plan.id %}" class="btn-danger" onclick="return confirm('Delete this study plan?')">Delete Plan</a>
+        </div>
+    </div>
+</div>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.navbar {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.nav-links a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+}
+
+.nav-links a:hover {
+    color: #667eea;
+}
+
+.container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.plan-header-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    margin-bottom: 1.5rem;
+}
+
+.plan-info h1 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.plan-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.meta-item {
+    background: #f0f0f0;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.progress-ring {
+    position: relative;
+    width: 120px;
+    height: 120px;
+}
+
+.progress-ring svg {
+    transform: rotate(-90deg);
+}
+
+.progress-bg {
+    fill: none;
+    stroke: #e0e0e0;
+    stroke-width: 8;
+}
+
+.progress-bar {
+    fill: none;
+    stroke: #667eea;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 283;
+    transition: stroke-dashoffset 0.5s;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stats-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-item {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.stat-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.upcoming-section {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.upcoming-section h2 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.upcoming-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.item-date {
+    background: #667eea;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    min-width: 70px;
+    text-align: center;
+}
+
+.item-content {
+    flex: 1;
+}
+
+.item-content h4 {
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.item-content p {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.item-time {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.schedule-section h2 {
+    color: white;
+    margin-bottom: 1rem;
+}
+
+.day-card {
+    background: white;
+    border-radius: 15px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.day-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.day-header h3 {
+    font-size: 1.1rem;
+}
+
+.day-total {
+    background: rgba(255,255,255,0.2);
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.85rem;
+}
+
+.tasks-list {
+    padding: 1rem;
+}
+
+.task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.task-item:last-child {
+    border-bottom: none;
+}
+
+.task-item.completed {
+    opacity: 0.7;
+}
+
+.task-item.completed .task-content h4 {
+    text-decoration: line-through;
+    color: #28a745;
+}
+
+.task-item.skipped {
+    background: #fff3cd;
+}
+
+.status-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.status-icon.done {
+    background: #28a745;
+    color: white;
+}
+
+.status-icon.skip {
+    background: #ffc107;
+    color: #333;
+}
+
+.status-icon.pending {
+    background: #e0e0e0;
+    color: #666;
+}
+
+.task-content {
+    flex: 1;
+}
+
+.task-content h4 {
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.task-content p {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.notes {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #888;
+    font-style: italic;
+}
+
+.task-meta {
+    text-align: right;
+}
+
+.duration {
+    display: block;
+    color: #667eea;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.btn-action {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 0.4rem 1rem;
+    border-radius: 15px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: background 0.3s;
+}
+
+.btn-action:hover {
+    background: #5a6fd6;
+}
+
+.actions-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+.btn-secondary, .btn-danger {
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-secondary {
+    background: white;
+    color: #667eea;
+}
+
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+
+.btn-danger {
+    background: #ff6b6b;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #ff5252;
+}
+
+@media (max-width: 768px) {
+    .plan-header-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .stats-bar {
+        grid-template-columns: 1fr;
+    }
+    
+    .upcoming-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .task-item {
+        flex-direction: column;
+    }
+    
+    .task-meta {
+        text-align: left;
+        margin-top: 0.5rem;
+    }
+}
+</style>
+</body>
+</html>

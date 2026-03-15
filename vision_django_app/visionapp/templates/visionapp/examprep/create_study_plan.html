@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Study Plan</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="create-plan-page">
+    <nav class="navbar">
+        <div class="nav-brand">📚 AI Study Planner</div>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Vision App</a>
+            <a href="{% url 'examprep_dashboard' %}">Exam Prep</a>
+            <a href="{% url 'study_planner' %}">Study Planner</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="form-card">
+            <h1>Create AI Study Plan</h1>
+            <p class="subtitle">Let AI analyze your exam and create a personalized schedule</p>
+
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="title">Plan Title</label>
+                    <input type="text" id="title" name="title" placeholder="e.g., Final Exam Preparation" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="exam_date">Exam Date</label>
+                        <input type="date" id="exam_date" name="exam_date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="daily_hours">Daily Study Hours</label>
+                        <input type="number" id="daily_hours" name="daily_hours" min="0.5" max="12" step="0.5" value="2" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="syllabus">Syllabus / Topics to Cover</label>
+                    <textarea id="syllabus" name="syllabus" rows="10" placeholder="Enter your syllabus topics here. You can use:
+- Bullet points
+- Numbered lists (1. Topic, 2. Topic)
+- Or just list topics separated by lines
+
+Example:
+1. Data Structures
+2. Algorithms
+3. Database Management
+4. Operating Systems
+5. Computer Networks" required></textarea>
+                </div>
+
+                <div class="ai-features">
+                    <h3>AI Will:</h3>
+                    <ul>
+                        <li>Analyze your syllabus and extract topics</li>
+                        <li>Calculate optimal daily study distribution</li>
+                        <li>Prioritize weak areas from your quiz history</li>
+                        <li>Create a day-by-day schedule until exam</li>
+                    </ul>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{% url 'study_planner' %}" class="btn-secondary">Cancel</a>
+                    <button type="submit" class="btn-primary">Generate Study Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.navbar {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.nav-links a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+}
+
+.nav-links a:hover {
+    color: #667eea;
+}
+
+.container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.form-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2.5rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.form-card h1 {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: #666;
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #333;
+    font-weight: 500;
+}
+
+input, textarea, select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 150px;
+}
+
+.ai-features {
+    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    border-left: 4px solid #667eea;
+}
+
+.ai-features h3 {
+    color: #667eea;
+    margin-bottom: 1rem;
+}
+
+.ai-features ul {
+    list-style: none;
+}
+
+.ai-features li {
+    padding: 0.4rem 0;
+    color: #555;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.ai-features li:before {
+    content: "🤖";
+    position: absolute;
+    left: 0;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 0.75rem 2rem;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #f0f0f0;
+    color: #555;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .btn-primary, .btn-secondary {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
+
+<script>
+// Set minimum date to today
+document.getElementById('exam_date').min = new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>

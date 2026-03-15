@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Progress</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="progress-page">
+    <div class="container">
+        <div class="page-header">
+            <h1>Study Progress</h1>
+            <a href="{% url 'examprep_dashboard' %}" class="btn-secondary">← Back to Dashboard</a>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stats-overview">
+            <div class="stat-card large">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-content">
+                    <span class="stat-value">{{ total_study_time }}</span>
+                    <span class="stat-label">Total Minutes Studied</span>
+                </div>
+            </div>
+            <div class="stat-card large">
+                <div class="stat-icon">📅</div>
+                <div class="stat-content">
+                    <span class="stat-value">{{ total_sessions }}</span>
+                    <span class="stat-label">Study Sessions</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <!-- Daily Study Time Chart -->
+            <div class="chart-card">
+                <h2>Daily Study Time (Last 30 Days)</h2>
+                <div class="chart-container">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Quiz Scores Chart -->
+            <div class="chart-card">
+                <h2>Quiz Performance</h2>
+                <div class="chart-container">
+                    <canvas id="scoresChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Flashcard Mastery Chart -->
+            <div class="chart-card">
+                <h2>Flashcard Mastery</h2>
+                <div class="chart-container doughnut">
+                    <canvas id="masteryChart"></canvas>
+                </div>
+                <div class="mastery-legend">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #ff6b6b;"></span>
+                        <span>New (0)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #ffd93d;"></span>
+                        <span>Learning (1-2)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #6bcf7f;"></span>
+                        <span>Good (3-4)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #4d96ff;"></span>
+                        <span>Mastered (5)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Study Streak -->
+            <div class="chart-card streak-card">
+                <h2>Study Streak</h2>
+                <div class="streak-display">
+                    <div class="streak-flame">🔥</div>
+                    <div class="streak-count">{{ streak|default:"0" }}</div>
+                    <div class="streak-label">days</div>
+                </div>
+                <p class="streak-message">
+                    {% if streak >= 7 %}
+                    Amazing! You're on fire! 🔥
+                    {% elif streak >= 3 %}
+                    Great consistency! Keep it up!
+                    {% elif streak > 0 %}
+                    Good start! Study tomorrow to keep the streak!
+                    {% else %}
+                    Start your streak today!
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Achievements Section -->
+        <div class="achievements-section">
+            <h2>Achievements</h2>
+            <div class="achievements-grid">
+                <div class="achievement-card {% if total_sessions >= 1 %}unlocked{% else %}locked{% endif %}">
+                    <div class="achievement-icon">🎯</div>
+                    <h4>First Steps</h4>
+                    <p>Complete your first study session</p>
+                </div>
+                <div class="achievement-card {% if total_study_time >= 60 %}unlocked{% else %}locked{% endif %}">
+                    <div class="achievement-icon">⏰</div>
+                    <h4>Hour of Power</h4>
+                    <p>Study for 60 minutes total</p>
+                </div>
+                <div class="achievement-card {% if streak >= 3 %}unlocked{% else %}locked{% endif %}">
+                    <div class="achievement-icon">🔥</div>
+                    <h4>On Fire</h4>
+                    <p>Maintain a 3-day study streak</p>
+                </div>
+                <div class="achievement-card {% if total_sessions >= 10 %}unlocked{% else %}locked{% endif %}">
+                    <div class="achievement-icon">📚</div>
+                    <h4>Dedicated Scholar</h4>
+                    <p>Complete 10 study sessions</p>
+                </div>
+                <div class="achievement-card {% if total_study_time >= 300 %}unlocked{% else %}locked{% endif %}">
+                    <div class="achievement-icon">🧠</div>
+                    <h4>Knowledge Seeker</h4>
+                    <p>Study for 5 hours total</p>
+                </div>
+                <div class="achievement-card {% if streak >= 7 %}unlocked{% else %}locked{% endif %}">
+                    <div class="achievement-icon">🏆</div>
+                    <h4>Week Warrior</h4>
+                    <p>Maintain a 7-day study streak</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Daily Study Time Chart
+const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+const dailyData = {{ daily_stats|safe }};
+const dailyLabels = Object.keys(dailyData).slice(-14); // Last 14 days
+const dailyValues = dailyLabels.map(date => dailyData[date]);
+
+new Chart(dailyCtx, {
+    type: 'bar',
+    data: {
+        labels: dailyLabels.map(date => {
+            const d = new Date(date);
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }),
+        datasets: [{
+            label: 'Minutes Studied',
+            data: dailyValues,
+            backgroundColor: 'rgba(78, 205, 196, 0.8)',
+            borderColor: 'rgba(78, 205, 196, 1)',
+            borderWidth: 1,
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Minutes'
+                }
+            }
+        }
+    }
+});
+
+// Quiz Scores Chart
+const scoresCtx = document.getElementById('scoresChart').getContext('2d');
+const quizScores = {{ quiz_scores|safe }};
+
+new Chart(scoresCtx, {
+    type: 'line',
+    data: {
+        labels: quizScores.map((_, i) => `Quiz ${i + 1}`),
+        datasets: [{
+            label: 'Score (%)',
+            data: quizScores.map(q => q.percentage),
+            borderColor: 'rgba(255, 107, 107, 1)',
+            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: 'rgba(255, 107, 107, 1)',
+            pointRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100,
+                title: {
+                    display: true,
+                    text: 'Score %'
+                }
+            }
+        }
+    }
+});
+
+// Flashcard Mastery Chart
+const masteryCtx = document.getElementById('masteryChart').getContext('2d');
+const masteryData = {{ mastery_data|safe }};
+
+new Chart(masteryCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['New', 'Learning', 'Good', 'Mastered'],
+        datasets: [{
+            data: [
+                masteryData['0'] || 0,
+                (masteryData['1'] || 0) + (masteryData['2'] || 0),
+                (masteryData['3'] || 0) + (masteryData['4'] || 0),
+                masteryData['5'] || 0
+            ],
+            backgroundColor: [
+                '#ff6b6b',
+                '#ffd93d',
+                '#6bcf7f',
+                '#4d96ff'
+            ],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        cutout: '70%'
+    }
+});
+</script>
+
+<style>
+.progress-page {
+    padding: 2rem 0;
+    min-height: calc(100vh - 200px);
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    color: #333;
+    margin: 0;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #f0f0f0;
+    color: #333;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+/* Stats Overview */
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card.large {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.stat-card.large .stat-icon {
+    font-size: 3rem;
+}
+
+.stat-card.large .stat-value {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.stat-card.large .stat-label {
+    color: #666;
+    font-size: 1rem;
+}
+
+/* Charts Grid */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.chart-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.chart-card h2 {
+    font-size: 1.25rem;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.chart-container {
+    height: 250px;
+    position: relative;
+}
+
+.chart-container.doughnut {
+    height: 200px;
+}
+
+/* Mastery Legend */
+.mastery-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+/* Streak Card */
+.streak-card {
+    text-align: center;
+}
+
+.streak-display {
+    margin: 1.5rem 0;
+}
+
+.streak-flame {
+    font-size: 4rem;
+    animation: flicker 1.5s infinite alternate;
+}
+
+@keyframes flicker {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.streak-count {
+    font-size: 4rem;
+    font-weight: bold;
+    color: #ff6b6b;
+    line-height: 1;
+}
+
+.streak-label {
+    font-size: 1.25rem;
+    color: #666;
+}
+
+.streak-message {
+    color: #666;
+    font-size: 1rem;
+}
+
+/* Achievements */
+.achievements-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.achievements-section h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 1.5rem;
+}
+
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.achievement-card {
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.achievement-card.locked {
+    background: #f0f0f0;
+    opacity: 0.6;
+}
+
+.achievement-card.unlocked {
+    background: linear-gradient(135deg, #fff9e6, #fff3cd);
+    border: 2px solid #ffc107;
+}
+
+.achievement-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.achievement-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.achievement-card h4 {
+    margin: 0 0 0.5rem 0;
+    color: #333;
+}
+
+.achievement-card p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+        height: 200px;
+    }
+    
+    .achievements-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Mouse Trail Effect */
+.trail-dot {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: rgba(102, 126, 234, 0.6);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: trail-fade 0.8s ease-out forwards;
+}
+
+@keyframes trail-fade {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+}
+</style>
+
+<script>
+(function() {
+    let lastX = 0, lastY = 0, throttle = false;
+    document.addEventListener('mousemove', function(e) {
+        if (throttle) return;
+        const dist = Math.sqrt(Math.pow(e.clientX - lastX, 2) + Math.pow(e.clientY - lastY, 2));
+        if (dist < 15) return;
+        lastX = e.clientX; lastY = e.clientY;
+        throttle = true;
+        setTimeout(() => throttle = false, 30);
+        const dot = document.createElement('div');
+        dot.className = 'trail-dot';
+        dot.style.left = (e.clientX - 4) + 'px';
+        dot.style.top = (e.clientY - 4) + 'px';
+        const colors = ['rgba(102, 126, 234, 0.6)', 'rgba(118, 75, 162, 0.6)', 'rgba(78, 205, 196, 0.5)', 'rgba(255, 107, 107, 0.5)'];
+        dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+        document.body.appendChild(dot);
+        setTimeout(() => dot.remove(), 800);
+    });
+})();
+</script>
+</body>
+</html>

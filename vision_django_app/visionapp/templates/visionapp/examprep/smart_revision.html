@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Revision - Spaced Repetition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="revision-page">
+    <nav class="navbar">
+        <div class="nav-brand">🧠 Smart Revision</div>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Vision App</a>
+            <a href="{% url 'examprep_dashboard' %}">Exam Prep</a>
+            <a href="{% url 'study_planner' %}">Planner</a>
+            <a href="{% url 'smart_revision_dashboard' %}" class="active">Smart Revision</a>
+            <a href="{% url 'previous_exam_questions' %}">Previous Exams</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Smart Revision System</h1>
+            <p class="subtitle">AI-powered spaced repetition - review topics at the optimal time</p>
+            <a href="{% url 'add_revision_topic' %}" class="btn-primary">+ Add Topic</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card urgent">
+                <div class="stat-icon">⏰</div>
+                <div class="stat-value">{{ due_count }}</div>
+                <div class="stat-label">Due Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-value">{{ mastered_count }}</div>
+                <div class="stat-label">Mastered</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-value">{{ mastery_percentage }}%</div>
+                <div class="stat-label">Mastery Rate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-value">{{ recent_sessions }}</div>
+                <div class="stat-label">Sessions (7 days)</div>
+            </div>
+        </div>
+
+        {% if due_revisions %}
+        <div class="due-section">
+            <h2>Due for Review</h2>
+            <div class="due-list">
+                {% for revision in due_revisions %}
+                <div class="due-card">
+                    <div class="due-info">
+                        <h3>{{ revision.topic }}</h3>
+                        {% if revision.subject %}
+                        <span class="subject-tag">{{ revision.subject }}</span>
+                        {% endif %}
+                        <div class="due-meta">
+                            <span>Reviewed {{ revision.review_count }} times</span>
+                            <span>Interval: {{ revision.interval_days }} days</span>
+                        </div>
+                    </div>
+                    <div class="due-actions">
+                        <a href="{% url 'review_topic' revision.id %}" class="btn-review">Review Now</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="schedule-section">
+            <h2>Upcoming Reviews</h2>
+            <div class="schedule-calendar">
+                {% for date, items in upcoming_schedule.items %}
+                <div class="day-box {% if items %}has-items{% endif %}">
+                    <div class="day-date">{{ date|slice:"5:" }}</div>
+                    <div class="day-count">{% if items %}{{ items|length }}{% else %}-{% endif %}</div>
+                    {% if items %}
+                    <div class="day-tooltip">
+                        {% for item in items %}
+                        <div class="tooltip-item">{{ item.topic }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>How Spaced Repetition Works</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">🧠</div>
+                    <h3>SM-2 Algorithm</h3>
+                    <p>Uses proven SuperMemo-2 algorithm to calculate optimal review intervals based on your performance.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">📈</div>
+                    <h3>Adaptive Learning</h3>
+                    <p>Easy topics are reviewed less frequently. Difficult topics appear more often until mastered.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">⏱️</div>
+                    <h3>Forgetfulness Curve</h3>
+                    <p>Reviews are scheduled just before you're likely to forget, maximizing retention efficiency.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">🎯</div>
+                    <h3>Mastery Tracking</h3>
+                    <p>Topics are marked mastered after 3 consecutive perfect recalls. Never waste time on what you know.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.navbar {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.nav-links a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+}
+
+.nav-links a:hover, .nav-links a.active {
+    color: #667eea;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: white;
+}
+
+.page-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    opacity: 0.9;
+    margin-bottom: 1.5rem;
+}
+
+.btn-primary {
+    display: inline-block;
+    background: #fff;
+    color: #667eea;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.stat-card.urgent {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+    color: white;
+}
+
+.stat-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.stat-card.urgent .stat-label {
+    color: rgba(255,255,255,0.9);
+}
+
+.due-section {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.due-section h2 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.due-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.due-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #ff6b6b;
+}
+
+.due-info h3 {
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.subject-tag {
+    background: #667eea;
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.due-meta {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.btn-review {
+    background: #28a745;
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 20px;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.schedule-section {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.schedule-section h2 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.schedule-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+}
+
+.day-box {
+    aspect-ratio: 1;
+    background: #f0f0f0;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+}
+
+.day-box.has-items {
+    background: #667eea;
+    color: white;
+}
+
+.day-date {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.day-count {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.day-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 8px;
+    white-space: nowrap;
+    z-index: 10;
+    margin-bottom: 5px;
+}
+
+.day-box:hover .day-tooltip {
+    display: block;
+}
+
+.tooltip-item {
+    font-size: 0.8rem;
+    padding: 0.2rem 0;
+}
+
+.info-section {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.info-section h2 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.info-card {
+    text-align: center;
+    padding: 1rem;
+}
+
+.info-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.info-card h3 {
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.info-card p {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .schedule-calendar {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    .info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .due-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+}
+
+/* Mouse Trail Effect */
+.trail-dot {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: rgba(102, 126, 234, 0.6);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: trail-fade 0.8s ease-out forwards;
+}
+
+@keyframes trail-fade {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.3); }
+}
+</style>
+
+<script>
+(function() {
+    let lastX = 0, lastY = 0, throttle = false;
+    document.addEventListener('mousemove', function(e) {
+        if (throttle) return;
+        const dist = Math.sqrt(Math.pow(e.clientX - lastX, 2) + Math.pow(e.clientY - lastY, 2));
+        if (dist < 15) return;
+        lastX = e.clientX; lastY = e.clientY;
+        throttle = true;
+        setTimeout(() => throttle = false, 30);
+        const dot = document.createElement('div');
+        dot.className = 'trail-dot';
+        dot.style.left = (e.clientX - 4) + 'px';
+        dot.style.top = (e.clientY - 4) + 'px';
+        const colors = ['rgba(102, 126, 234, 0.6)', 'rgba(118, 75, 162, 0.6)', 'rgba(78, 205, 196, 0.5)', 'rgba(255, 107, 107, 0.5)'];
+        dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+        document.body.appendChild(dot);
+        setTimeout(() => dot.remove(), 800);
+    });
+})();
+</script>
+</body>
+</html>

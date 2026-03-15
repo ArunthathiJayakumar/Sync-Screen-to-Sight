@@ -10,7 +10,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from visionapp.models import UserVisionData
+from visionapp.models import UserVisionData, GeneratedNotes, MindMapNode
 CHART_V_VALUES = [
     0.1, 0.2, 0.3,  
     0.4, 0.5, 0.6, 0.7, 0.8, 0.9,   
@@ -835,11 +835,15 @@ def gen_frames():
     cap = cv2.VideoCapture(0)
     # If mediapipe is not installed or face detection is disabled then provide a
     # static message frame instead of real webcam streaming.
-    if eye_screen_distance.face_detection is None:
-        # Create a single static frame that indicates mediapipe is not installed.
+    face_detection_available = (eye_screen_distance.face_detection is not None or 
+                                eye_screen_distance.face_detector is not None or
+                                eye_screen_distance.haar_face_cascade is not None)
+    
+    if not face_detection_available:
+        # Create a single static frame that indicates face detection is not available.
         h, w = 480, 640
         static_img = np.zeros((h, w, 3), dtype=np.uint8)
-        cv2.putText(static_img, 'Mediapipe not installed', (10, 220), cv2.FONT_HERSHEY_SIMPLEX,
+        cv2.putText(static_img, 'Face detection not available', (10, 220), cv2.FONT_HERSHEY_SIMPLEX,
                     1.0, (255, 255, 255), 2)
         _, buffer = cv2.imencode('.jpg', static_img)
         frame = buffer.tobytes()
@@ -854,20 +858,44 @@ def gen_frames():
 
         image.flags.writeable = False
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = eye_screen_distance.face_detection.process(image_rgb)
-
+        
         bbox_list, eyes_list = [], []
-        if results.detections:
-            for detection in results.detections:
-                bboxc = detection.location_data.relative_bounding_box
-                ih, iw, ic = image.shape
-                bbox = int(bboxc.xmin * iw), int(bboxc.ymin * ih), int(bboxc.width * iw), int(bboxc.height * ih)
-                bbox_list.append(bbox)
+        
+        # Use appropriate face detection method
+        if eye_screen_distance.face_detection is not None:
+            # Old mediapipe API
+            results = eye_screen_distance.face_detection.process(image_rgb)
+            if results.detections:
+                for detection in results.detections:
+                    bboxc = detection.location_data.relative_bounding_box
+                    ih, iw, ic = image.shape
+                    bbox = int(bboxc.xmin * iw), int(bboxc.ymin * ih), int(bboxc.width * iw), int(bboxc.height * ih)
+                    bbox_list.append(bbox)
 
-                left_eye = detection.location_data.relative_keypoints[0]
-                right_eye = detection.location_data.relative_keypoints[1]
-                eyes_list.append([(int(left_eye.x * iw), int(left_eye.y * ih)),
-                                  (int(right_eye.x * iw), int(right_eye.y * ih))])
+                    left_eye = detection.location_data.relative_keypoints[0]
+                    right_eye = detection.location_data.relative_keypoints[1]
+                    eyes_list.append([(int(left_eye.x * iw), int(left_eye.y * ih)),
+                                      (int(right_eye.x * iw), int(right_eye.y * ih))])
+        elif eye_screen_distance.face_detector is not None:
+            # New mediapipe API - requires different handling (will implement if needed)
+            print('New mediapipe API not fully implemented for streaming')
+        elif eye_screen_distance.haar_face_cascade is not None:
+            # Haar Cascade fallback
+            image_gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+            faces = eye_screen_distance.haar_face_cascade.detectMultiScale(image_gray, 1.3, 5)
+            ih, iw, ic = image_rgb.shape
+            
+            for (x, y, w, h) in faces:
+                bbox = (x, y, w, h)
+                bbox_list.append(bbox)
+                
+                # Estimate eye positions from face bounding box (approximately 1/3 and 2/3 across, 1/3 down)
+                left_eye_x = int(x + w * 0.33)
+                left_eye_y = int(y + h * 0.33)
+                right_eye_x = int(x + w * 0.67)
+                right_eye_y = int(y + h * 0.33)
+                
+                eyes_list.append([(left_eye_x, left_eye_y), (right_eye_x, right_eye_y)])
 
         image.flags.writeable = True
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -1013,4 +1041,1193 @@ def view_file(request):
     response['Content-Disposition'] = f'inline; filename="{filename}"'
     response['X-Content-Type-Options'] = 'nosniff'
     return response
+
+
+# --- PWA camera view and simple frame analysis API ---
+from django.views.decorators.csrf import csrf_exempt
+import base64, io
+from PIL import Image
+
+
+def pwa_camera_view(request):
+    """Render a simple PWA-friendly camera UI that sends frames to the server."""
+    return render(request, 'pwa_camera.html')
+
+
+@csrf_exempt
+def analyze_frame(request):
+    """Accepts JSON {image: 'data:image/jpeg;base64,...'} and returns distance JSON.
+
+    This endpoint uses the existing `DistanceCalculator` fallback (Haar Cascade)
+    to estimate eye distance from a single uploaded frame. It is intentionally
+    simple to keep latency low for prototyping.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        img_b64 = payload.get('image', '')
+        if ',' in img_b64:
+            img_b64 = img_b64.split(',', 1)[1]
+        img_bytes = base64.b64decode(img_b64)
+        img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
+        frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+        # Instantiate DistanceCalculator (uses Haar fallback if mediapipe not available)
+        dc = DistanceCalculator()
+
+        # Use Haar Cascade if available (fast, server-side)
+        if getattr(dc, 'haar_face_cascade', None) is not None:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = dc.haar_face_cascade.detectMultiScale(gray, 1.3, 5)
+            if len(faces) == 0:
+                return JsonResponse({'error': 'no_face'})
+            x, y, w, h = faces[0]
+            left = (int(x + w * 0.33), int(y + h * 0.33))
+            right = (int(x + w * 0.67), int(y + h * 0.33))
+            dist_px = np.sqrt((left[0] - right[0]) ** 2 + (left[1] - right[1]) ** 2)
+            # Use calibration CSV if available; otherwise use defaults
+            try:
+                df = None
+                if pd is not None:
+                    df = pd.read_csv('distance_xy.csv')
+                if df is not None:
+                    px = df['distance_pixel'].values
+                    cm = df['distance_cm'].values
+                else:
+                    px = np.array([178, 150, 137, 111, 94, 81, 65, 54])
+                    cm = np.array([19, 22, 27, 34, 42, 49, 61, 72])
+                a, b, c = np.polyfit(px, cm, 2)
+                dist_cm = int(a * dist_px ** 2 + b * dist_px + c)
+            except Exception:
+                dist_cm = None
+
+            return JsonResponse({'distance': dist_cm, 'note': 'haar'})
+
+        # If no detector available
+        return JsonResponse({'error': 'no_detector'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)})
+
+
+# ==================== AI EXAM PREPARATION VIEWS ====================
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.db import models
+from datetime import datetime, timedelta
+import json
+
+from .models import (
+    StudyMaterial, Flashcard, Quiz, QuizQuestion, 
+    QuizAttempt, StudySession, LearningResource
+)
+from .ai_examprep import (
+    extract_text_from_document, summarize_content, extract_key_concepts,
+    generate_flashcards, generate_quiz_questions, recommend_resources
+)
+
+
+@login_required(login_url='/signin/')
+def examprep_dashboard(request):
+    """Main dashboard for exam preparation."""
+    user = request.user
+    
+    # Get statistics
+    total_materials = StudyMaterial.objects.filter(user=user).count()
+    total_flashcards = Flashcard.objects.filter(user=user).count()
+    total_quizzes = Quiz.objects.filter(user=user).count()
+    total_attempts = QuizAttempt.objects.filter(user=user).count()
+    
+    # Get recent activity
+    recent_materials = StudyMaterial.objects.filter(user=user)[:5]
+    recent_attempts = QuizAttempt.objects.filter(user=user).select_related('quiz')[:5]
+    
+    # Calculate average score
+    avg_score = 0
+    if total_attempts > 0:
+        avg_score = QuizAttempt.objects.filter(user=user).aggregate(
+            avg=models.Avg('percentage')
+        )['avg'] or 0
+    
+    # Get flashcards due for review
+    due_flashcards = Flashcard.objects.filter(
+        user=user,
+        next_review__lte=timezone.now()
+    ).count()
+    
+    # Get study streak
+    study_dates = StudySession.objects.filter(
+        user=user
+    ).values_list('date', flat=True).distinct().order_by('-date')
+    
+    streak = 0
+    today = timezone.now().date()
+    for i, date in enumerate(study_dates):
+        if date == today - timedelta(days=i):
+            streak += 1
+        else:
+            break
+    
+    context = {
+        'total_materials': total_materials,
+        'total_flashcards': total_flashcards,
+        'total_quizzes': total_quizzes,
+        'total_attempts': total_attempts,
+        'avg_score': round(avg_score, 1),
+        'due_flashcards': due_flashcards,
+        'streak': streak,
+        'recent_materials': recent_materials,
+        'recent_attempts': recent_attempts,
+    }
+    return render(request, 'visionapp/examprep/dashboard.html', context)
+
+
+@login_required(login_url='/signin/')
+def upload_study_material(request):
+    """Upload and process study materials."""
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        uploaded_file = request.FILES.get('document')
+        
+        if not uploaded_file:
+            messages.error(request, 'Please select a file to upload.')
+            return redirect('upload_study_material')
+        
+        # Save the file
+        material = StudyMaterial.objects.create(
+            user=request.user,
+            title=title or uploaded_file.name,
+            file=uploaded_file
+        )
+        
+        # Process the document
+        try:
+            file_path = material.file.path
+            extracted_text = extract_text_from_document(file_path)
+            
+            if extracted_text:
+                material.extracted_text = extracted_text
+                material.summary = summarize_content(extracted_text, num_sentences=3)
+                material.key_concepts = extract_key_concepts(extracted_text, num_concepts=10)
+                material.save()
+                
+                # Generate flashcards automatically
+                flashcards_data = generate_flashcards(extracted_text, num_cards=10)
+                for card_data in flashcards_data:
+                    Flashcard.objects.create(
+                        user=request.user,
+                        material=material,
+                        question=card_data['question'],
+                        answer=card_data['answer'],
+                        context=card_data.get('context', '')
+                    )
+                
+                # Generate quiz automatically
+                quiz_questions_data = generate_quiz_questions(extracted_text, num_questions=5)
+                if quiz_questions_data:
+                    quiz = Quiz.objects.create(
+                        user=request.user,
+                        material=material,
+                        title=f"Quiz: {material.title}",
+                        description=f"Auto-generated quiz based on {material.title}",
+                        is_auto_generated=True
+                    )
+                    
+                    for i, q_data in enumerate(quiz_questions_data):
+                        QuizQuestion.objects.create(
+                            quiz=quiz,
+                            question_type=q_data['type'],
+                            question_text=q_data['question'],
+                            options=q_data.get('options', []),
+                            correct_answer=str(q_data['correct_answer']),
+                            explanation=q_data.get('explanation', ''),
+                            order=i
+                        )
+                
+                messages.success(
+                    request, 
+                    f'Material uploaded and processed successfully! '
+                    f'Generated {len(flashcards_data)} flashcards and {len(quiz_questions_data)} quiz questions.'
+                )
+            else:
+                messages.warning(request, 'File uploaded but could not extract text.')
+            
+            return redirect('examprep_dashboard')
+            
+        except Exception as e:
+            messages.error(request, f'Error processing document: {str(e)}')
+            return redirect('upload_study_material')
+    
+    return render(request, 'visionapp/examprep/upload.html')
+
+
+@login_required(login_url='/signin/')
+def view_flashcards(request, material_id=None):
+    """View and review flashcards."""
+    user = request.user
+    
+    if material_id:
+        material = get_object_or_404(StudyMaterial, id=material_id, user=user)
+        flashcards = Flashcard.objects.filter(user=user, material=material)
+    else:
+        material = None
+        flashcards = Flashcard.objects.filter(user=user)
+    
+    # Filter by mastery level if requested
+    mastery_filter = request.GET.get('mastery')
+    if mastery_filter:
+        flashcards = flashcards.filter(mastery_level=int(mastery_filter))
+    
+    # Get due flashcards
+    show_due_only = request.GET.get('due') == '1'
+    if show_due_only:
+        flashcards = flashcards.filter(
+            models.Q(next_review__lte=timezone.now()) | models.Q(next_review__isnull=True)
+        )
+    
+    flashcards = flashcards.order_by('mastery_level', '-created_at')
+    
+    context = {
+        'flashcards': flashcards,
+        'material': material,
+        'total_count': flashcards.count(),
+        'due_count': Flashcard.objects.filter(
+            user=user,
+            next_review__lte=timezone.now()
+        ).count(),
+    }
+    return render(request, 'visionapp/examprep/flashcards.html', context)
+
+
+@login_required(login_url='/signin/')
+def create_flashcard(request):
+    """Create a new flashcard manually."""
+    if request.method == 'POST':
+        question = request.POST.get('question')
+        answer = request.POST.get('answer')
+        material_id = request.POST.get('material_id')
+        
+        material = None
+        if material_id:
+            material = get_object_or_404(StudyMaterial, id=material_id, user=request.user)
+        
+        Flashcard.objects.create(
+            user=request.user,
+            material=material,
+            question=question,
+            answer=answer
+        )
+        
+        messages.success(request, 'Flashcard created successfully!')
+        
+        if material:
+            return redirect('view_flashcards', material_id=material.id)
+        return redirect('view_flashcards')
+    
+    materials = StudyMaterial.objects.filter(user=request.user)
+    return render(request, 'visionapp/examprep/create_flashcard.html', {'materials': materials})
+
+
+@login_required(login_url='/signin/')
+@csrf_exempt
+def update_flashcard_mastery(request):
+    """AJAX endpoint to update flashcard mastery level."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        flashcard_id = data.get('flashcard_id')
+        mastery_level = data.get('mastery_level')
+        
+        flashcard = get_object_or_404(Flashcard, id=flashcard_id, user=request.user)
+        flashcard.mastery_level = mastery_level
+        flashcard.review_count += 1
+        flashcard.last_reviewed = timezone.now()
+        
+        # Calculate next review date based on mastery (spaced repetition)
+        days_until_next = [1, 3, 7, 14, 30][min(mastery_level, 4)]
+        flashcard.next_review = timezone.now() + timedelta(days=days_until_next)
+        
+        flashcard.save()
+        
+        # Log study session
+        StudySession.objects.create(
+            user=request.user,
+            session_type='flashcard_review',
+            duration=1,
+            items_reviewed=1
+        )
+        
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required(login_url='/signin/')
+def take_quiz(request, quiz_id=None):
+    """Take a quiz."""
+    user = request.user
+    
+    if quiz_id:
+        quiz = get_object_or_404(Quiz, id=quiz_id, user=user)
+    else:
+        # Get a random quiz
+        quiz = Quiz.objects.filter(user=user).order_by('?').first()
+        if not quiz:
+            messages.info(request, 'No quizzes available. Upload study materials to generate quizzes.')
+            return redirect('examprep_dashboard')
+    
+    questions = quiz.questions.all()
+    
+    context = {
+        'quiz': quiz,
+        'questions': questions,
+        'total_questions': questions.count(),
+    }
+    return render(request, 'visionapp/examprep/quiz.html', context)
+
+
+@login_required(login_url='/signin/')
+def submit_quiz(request):
+    """Submit quiz answers and show results."""
+    if request.method != 'POST':
+        return redirect('examprep_dashboard')
+    
+    quiz_id = request.POST.get('quiz_id')
+    quiz = get_object_or_404(Quiz, id=quiz_id, user=request.user)
+    questions = quiz.questions.all()
+    
+    score = 0
+    total_questions = questions.count()
+    answers = {}
+    results = []
+    
+    start_time = request.POST.get('start_time')
+    time_taken = 0
+    if start_time:
+        try:
+            start_dt = datetime.fromisoformat(start_time)
+            time_taken = int((timezone.now() - start_dt).total_seconds())
+        except:
+            pass
+    
+    for question in questions:
+        answer_key = f'question_{question.id}'
+        user_answer = request.POST.get(answer_key, '')
+        answers[str(question.id)] = user_answer
+        
+        is_correct = user_answer.lower().strip() == question.correct_answer.lower().strip()
+        if is_correct:
+            score += 1
+        
+        results.append({
+            'question': question,
+            'user_answer': user_answer,
+            'is_correct': is_correct,
+        })
+    
+    percentage = (score / total_questions * 100) if total_questions > 0 else 0
+    
+    # Save attempt
+    attempt = QuizAttempt.objects.create(
+        user=request.user,
+        quiz=quiz,
+        score=score,
+        total_questions=total_questions,
+        percentage=percentage,
+        time_taken=time_taken,
+        answers=answers
+    )
+    
+    # Log study session
+    StudySession.objects.create(
+        user=request.user,
+        session_type='quiz',
+        duration=max(1, time_taken // 60),
+        items_reviewed=total_questions
+    )
+    
+    context = {
+        'quiz': quiz,
+        'attempt': attempt,
+        'score': score,
+        'total_questions': total_questions,
+        'percentage': round(percentage, 1),
+        'time_taken': time_taken,
+        'results': results,
+    }
+    return render(request, 'visionapp/examprep/quiz_results.html', context)
+
+
+@login_required(login_url='/signin/')
+def quiz_history(request):
+    """View quiz attempt history."""
+    attempts = QuizAttempt.objects.filter(
+        user=request.user
+    ).select_related('quiz').order_by('-completed_at')
+    
+    context = {
+        'attempts': attempts,
+    }
+    return render(request, 'visionapp/examprep/history.html', context)
+
+
+@login_required(login_url='/signin/')
+def learning_resources(request):
+    """Get AI-recommended learning resources."""
+    user = request.user
+    
+    # Get user's materials and extract topics
+    materials = StudyMaterial.objects.filter(user=user)
+    all_topics = []
+    for material in materials:
+        all_topics.extend(material.key_concepts)
+    
+    # Get weak areas from quiz attempts
+    recent_attempts = QuizAttempt.objects.filter(
+        user=user,
+        percentage__lt=70
+    ).select_related('quiz')[:10]
+    
+    weak_topics = []
+    for attempt in recent_attempts:
+        if attempt.quiz.material:
+            weak_topics.extend(attempt.quiz.material.key_concepts)
+    
+    # Combine topics
+    topics = list(set(all_topics + weak_topics))
+    
+    # Get recommendations
+    if topics:
+        recommendations = recommend_resources(topics)
+    else:
+        recommendations = []
+    
+    # Get saved resources
+    saved_resources = LearningResource.objects.all()[:20]
+    
+    context = {
+        'recommendations': recommendations,
+        'saved_resources': saved_resources,
+        'topics': topics,
+        'weak_topics': list(set(weak_topics)),
+    }
+    return render(request, 'visionapp/examprep/resources.html', context)
+
+
+@login_required(login_url='/signin/')
+def study_progress(request):
+    """View study progress analytics."""
+    user = request.user
+    
+    # Get study sessions for the last 30 days
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    sessions = StudySession.objects.filter(
+        user=user,
+        date__gte=thirty_days_ago
+    )
+    
+    # Calculate daily study time
+    daily_stats = {}
+    for i in range(30):
+        date = (timezone.now() - timedelta(days=i)).date()
+        daily_stats[date.isoformat()] = 0
+    
+    for session in sessions:
+        date_key = session.date.isoformat()
+        if date_key in daily_stats:
+            daily_stats[date_key] += session.duration
+    
+    # Get quiz performance over time
+    quiz_attempts = QuizAttempt.objects.filter(
+        user=user
+    ).order_by('completed_at')[:20]
+    
+    quiz_scores = [
+        {'date': attempt.completed_at.isoformat(), 'percentage': attempt.percentage}
+        for attempt in quiz_attempts
+    ]
+    
+    # Get flashcard mastery distribution
+    mastery_dist = Flashcard.objects.filter(user=user).values('mastery_level').annotate(
+        count=models.Count('id')
+    )
+    
+    mastery_data = {i: 0 for i in range(6)}
+    for item in mastery_dist:
+        mastery_data[item['mastery_level']] = item['count']
+    
+    # Calculate total study time
+    total_study_time = sessions.aggregate(total=models.Sum('duration'))['total'] or 0
+    
+    context = {
+        'daily_stats': daily_stats,
+        'quiz_scores': quiz_scores,
+        'mastery_data': mastery_data,
+        'total_study_time': total_study_time,
+        'total_sessions': sessions.count(),
+    }
+    return render(request, 'visionapp/examprep/progress.html', context)
+
+
+@login_required(login_url='/signin/')
+def study_materials_list(request):
+    """List all study materials."""
+    materials = StudyMaterial.objects.filter(user=request.user).order_by('-created_at')
+    
+    context = {
+        'materials': materials,
+    }
+    return render(request, 'visionapp/examprep/materials_list.html', context)
+
+
+@login_required(login_url='/signin/')
+def delete_study_material(request, material_id):
+    """Delete a study material and associated data."""
+    material = get_object_or_404(StudyMaterial, id=material_id, user=request.user)
+    
+    if request.method == 'POST':
+        material.delete()
+        messages.success(request, 'Study material deleted successfully.')
+        return redirect('study_materials_list')
+    
+    return render(request, 'visionapp/examprep/confirm_delete.html', {'material': material})
+
+
+# ==================== AI STUDY PLANNER VIEWS ====================
+
+from .models import StudyPlan, StudySchedule
+from .ai_examprep import StudyPlanner
+
+
+@login_required(login_url='/signin/')
+def study_planner(request):
+    """AI Study Planner - Create and manage study plans."""
+    user = request.user
+    
+    # Get user's active study plans
+    study_plans = StudyPlan.objects.filter(user=user, is_active=True).order_by('-created_at')
+    
+    # Get weak topics from quiz attempts for AI recommendations
+    weak_topics = []
+    recent_attempts = QuizAttempt.objects.filter(user=user, percentage__lt=70).select_related('quiz')[:10]
+    for attempt in recent_attempts:
+        if attempt.quiz.material:
+            weak_topics.extend(attempt.quiz.material.key_concepts)
+    weak_topics = list(set(weak_topics))[:10]  # Top 10 weak topics
+    
+    context = {
+        'study_plans': study_plans,
+        'weak_topics': weak_topics,
+    }
+    return render(request, 'visionapp/examprep/study_planner.html', context)
+
+
+@login_required(login_url='/signin/')
+def create_study_plan(request):
+    """Create a new AI-generated study plan."""
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        exam_date = request.POST.get('exam_date')
+        syllabus = request.POST.get('syllabus')
+        daily_hours = float(request.POST.get('daily_hours', 2.0))
+        
+        # Create study plan
+        study_plan = StudyPlan.objects.create(
+            user=request.user,
+            title=title,
+            exam_date=exam_date,
+            syllabus=syllabus,
+            daily_study_hours=daily_hours
+        )
+        
+        # Get weak topics for prioritization
+        weak_topics = []
+        recent_attempts = QuizAttempt.objects.filter(
+            user=request.user, percentage__lt=70
+        ).select_related('quiz')[:10]
+        for attempt in recent_attempts:
+            if attempt.quiz.material:
+                weak_topics.extend(attempt.quiz.material.key_concepts)
+        weak_topics = list(set(weak_topics))
+        
+        # Generate AI schedule
+        schedule_data = StudyPlanner.generate_study_schedule(
+            syllabus=syllabus,
+            exam_date=exam_date,
+            daily_hours=daily_hours,
+            weak_topics=weak_topics
+        )
+        
+        # Save schedule to database
+        for day_data in schedule_data:
+            for item in day_data['items']:
+                StudySchedule.objects.create(
+                    study_plan=study_plan,
+                    date=day_data['date'],
+                    topic=item['topic'],
+                    description=item['description'],
+                    estimated_minutes=item['estimated_minutes']
+                )
+        
+        messages.success(request, f'Study plan "{title}" created successfully with {len(schedule_data)} days of schedule!')
+        return redirect('view_study_plan', plan_id=study_plan.id)
+    
+    return render(request, 'visionapp/examprep/create_study_plan.html')
+
+
+@login_required(login_url='/signin/')
+def view_study_plan(request, plan_id):
+    """View a specific study plan with daily schedule."""
+    study_plan = get_object_or_404(StudyPlan, id=plan_id, user=request.user)
+    schedule_items = study_plan.schedule_items.all()
+    
+    # Group by date
+    from collections import defaultdict
+    schedule_by_date = defaultdict(list)
+    for item in schedule_items:
+        schedule_by_date[item.date].append(item)
+    
+    # Calculate progress
+    total_items = schedule_items.count()
+    completed_items = schedule_items.filter(is_completed=True).count()
+    progress_percentage = (completed_items / total_items * 100) if total_items > 0 else 0
+    
+    # Get upcoming items
+    from datetime import date
+    upcoming_items = schedule_items.filter(date__gte=date.today(), is_completed=False).order_by('date')[:7]
+    
+    context = {
+        'study_plan': study_plan,
+        'schedule_by_date': dict(schedule_by_date),
+        'total_items': total_items,
+        'completed_items': completed_items,
+        'progress_percentage': round(progress_percentage, 1),
+        'upcoming_items': upcoming_items,
+    }
+    return render(request, 'visionapp/examprep/view_study_plan.html', context)
+
+
+@login_required(login_url='/signin/')
+def update_schedule_item(request, item_id):
+    """Mark schedule item as complete or skipped."""
+    item = get_object_or_404(StudySchedule, id=item_id, study_plan__user=request.user)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        notes = request.POST.get('notes', '')
+        
+        if action == 'complete':
+            item.is_completed = True
+            item.is_skipped = False
+            item.completion_notes = notes
+            messages.success(request, f'Completed: {item.topic}')
+        elif action == 'skip':
+            item.is_skipped = True
+            item.is_completed = False
+            item.completion_notes = notes
+            messages.warning(request, f'Skipped: {item.topic} - AI will reschedule this topic')
+            
+            # Get weak topics for rescheduling priority
+            weak_topics = []
+            recent_attempts = QuizAttempt.objects.filter(
+                user=request.user, percentage__lt=70
+            ).select_related('quiz')[:10]
+            for attempt in recent_attempts:
+                if attempt.quiz.material:
+                    weak_topics.extend(attempt.quiz.material.key_concepts)
+            
+            # Reschedule skipped topic - create proper schedule structure
+            schedule_qs = StudySchedule.objects.filter(study_plan=item.study_plan)
+            
+            # Build schedule grouped by date
+            from collections import defaultdict
+            schedule_by_date = defaultdict(list)
+            for s in schedule_qs:
+                schedule_by_date[s.date].append({
+                    'topic': s.topic,
+                    'description': s.description,
+                    'estimated_minutes': s.estimated_minutes
+                })
+            
+            # Convert to list format expected by StudyPlanner
+            schedule_list = []
+            for date_key, items in schedule_by_date.items():
+                total_minutes = sum(i['estimated_minutes'] for i in items)
+                schedule_list.append({
+                    'date': date_key.isoformat() if hasattr(date_key, 'isoformat') else str(date_key),
+                    'items': items,
+                    'total_minutes': total_minutes
+                })
+            
+            adjusted_schedule = StudyPlanner.adjust_schedule_for_skipped_topics(
+                schedule_list,
+                [item.topic],
+                weak_topics
+            )
+            
+            # Add rescheduled items
+            if adjusted_schedule:
+                for day_data in adjusted_schedule[-2:]:  # Add last 2 days (rescheduled)
+                    for schedule_item in day_data['items']:
+                        if any(st.lower() in schedule_item['topic'].lower() for st in [item.topic]):
+                            from datetime import date as dt_date
+                            date_val = day_data['date']
+                            if isinstance(date_val, str):
+                                date_val = dt_date.fromisoformat(date_val)
+                            StudySchedule.objects.create(
+                                study_plan=item.study_plan,
+                                date=date_val,
+                                topic=schedule_item['topic'],
+                                description=schedule_item['description'] + " (Rescheduled)",
+                                estimated_minutes=schedule_item['estimated_minutes']
+                            )
+        
+        item.save()
+        return redirect('view_study_plan', plan_id=item.study_plan.id)
+    
+    return render(request, 'visionapp/examprep/update_schedule_item.html', {'item': item})
+
+
+@login_required(login_url='/signin/')
+def delete_study_plan(request, plan_id):
+    """Delete a study plan."""
+    study_plan = get_object_or_404(StudyPlan, id=plan_id, user=request.user)
+    
+    if request.method == 'POST':
+        study_plan.delete()
+        messages.success(request, 'Study plan deleted successfully.')
+        return redirect('study_planner')
+    
+    return render(request, 'visionapp/examprep/confirm_delete_plan.html', {'study_plan': study_plan})
+
+
+# ==================== PREVIOUS EXAM PATTERN & SMART REVISION VIEWS ====================
+
+from .models import PreviousExamQuestion, SmartRevision, RevisionSession
+from .ai_examprep import ExamPatternAnalyzer, SpacedRepetitionEngine
+
+
+@login_required(login_url='/signin/')
+def previous_exam_questions(request):
+    """View and manage previous exam questions with pattern analysis."""
+    user = request.user
+    
+    # Get filter parameters
+    subject = request.GET.get('subject', '')
+    year = request.GET.get('year', '')
+    
+    questions = PreviousExamQuestion.objects.filter(user=user)
+    if subject:
+        questions = questions.filter(subject__icontains=subject)
+    if year:
+        questions = questions.filter(year=year)
+    
+    questions = questions.order_by('-year', 'subject')
+    
+    # Get unique subjects and years for filters
+    subjects = PreviousExamQuestion.objects.filter(user=user).values_list('subject', flat=True).distinct()
+    years = PreviousExamQuestion.objects.filter(user=user).values_list('year', flat=True).distinct().order_by('-year')
+    
+    # Generate pattern analysis
+    questions_data = list(questions.values())
+    pattern_report = ExamPatternAnalyzer.generate_pattern_report(questions_data)
+    
+    context = {
+        'questions': questions,
+        'subjects': subjects,
+        'years': years,
+        'selected_subject': subject,
+        'selected_year': year,
+        'pattern_report': pattern_report,
+    }
+    return render(request, 'visionapp/examprep/previous_exam_questions.html', context)
+
+
+@login_required(login_url='/signin/')
+def add_previous_exam_question(request):
+    """Add a new previous exam question."""
+    if request.method == 'POST':
+        PreviousExamQuestion.objects.create(
+            user=request.user,
+            subject=request.POST.get('subject'),
+            year=request.POST.get('year'),
+            question_type=request.POST.get('question_type'),
+            question_text=request.POST.get('question_text'),
+            topic=request.POST.get('topic'),
+            marks=request.POST.get('marks', 5),
+            difficulty_level=request.POST.get('difficulty_level', 3),
+            frequency_count=request.POST.get('frequency_count', 1)
+        )
+        messages.success(request, 'Previous exam question added successfully!')
+        return redirect('previous_exam_questions')
+    
+    return render(request, 'visionapp/examprep/add_previous_question.html')
+
+
+@login_required(login_url='/signin/')
+def smart_revision_dashboard(request):
+    """Smart revision dashboard with spaced repetition."""
+    user = request.user
+    from datetime import date
+    
+    # Get due revisions for today
+    revisions = SmartRevision.objects.filter(user=user, is_mastered=False)
+    revisions_data = list(revisions.values())
+    
+    due_today = SpacedRepetitionEngine.get_due_revisions(revisions_data, date.today())
+    due_count = len(due_today)
+    
+    # Get upcoming revisions
+    upcoming_schedule = SpacedRepetitionEngine.get_revision_schedule(revisions_data, 14)
+    
+    # Get mastered topics
+    mastered_count = SmartRevision.objects.filter(user=user, is_mastered=True).count()
+    total_count = revisions.count() + mastered_count
+    
+    # Get revision streak
+    recent_sessions = RevisionSession.objects.filter(
+        revision__user=user,
+        reviewed_at__gte=date.today() - timedelta(days=7)
+    ).count()
+    
+    context = {
+        'due_revisions': revisions.filter(next_review__lte=date.today()).order_by('next_review')[:10],
+        'due_count': due_count,
+        'upcoming_schedule': upcoming_schedule,
+        'mastered_count': mastered_count,
+        'total_count': total_count,
+        'mastery_percentage': round(mastered_count / total_count * 100, 1) if total_count > 0 else 0,
+        'recent_sessions': recent_sessions,
+    }
+    return render(request, 'visionapp/examprep/smart_revision.html', context)
+
+
+@login_required(login_url='/signin/')
+def add_revision_topic(request):
+    """Add a new topic for smart revision."""
+    if request.method == 'POST':
+        from datetime import date, timedelta
+        
+        SmartRevision.objects.create(
+            user=request.user,
+            topic=request.POST.get('topic'),
+            subject=request.POST.get('subject', ''),
+            next_review=date.today(),
+            interval_days=1,
+            ease_factor=2.5
+        )
+        messages.success(request, 'Topic added to smart revision system!')
+        return redirect('smart_revision_dashboard')
+    
+    return render(request, 'visionapp/examprep/add_revision_topic.html')
+
+
+@login_required(login_url='/signin/')
+def review_topic(request, revision_id):
+    """Review a topic and update spaced repetition schedule."""
+    revision = get_object_or_404(SmartRevision, id=revision_id, user=request.user)
+    
+    if request.method == 'POST':
+        quality = int(request.POST.get('quality', 3))
+        time_spent = int(request.POST.get('time_spent', 0))
+        notes = request.POST.get('notes', '')
+        
+        # Record the session
+        RevisionSession.objects.create(
+            revision=revision,
+            quality=quality,
+            time_spent_minutes=time_spent,
+            notes=notes
+        )
+        
+        # Update revision using SM-2 algorithm
+        new_interval, new_ease = SpacedRepetitionEngine.calculate_next_review(
+            quality=quality,
+            current_interval=revision.interval_days,
+            ease_factor=revision.ease_factor
+        )
+        
+        from datetime import date, timedelta
+        revision.interval_days = new_interval
+        revision.ease_factor = new_ease
+        revision.review_count += 1
+        revision.last_reviewed = date.today()
+        revision.next_review = date.today() + timedelta(days=new_interval)
+        
+        # Mark as mastered if quality is consistently high
+        recent_sessions = revision.sessions.order_by('-reviewed_at')[:3]
+        if len(recent_sessions) >= 3 and all(s.quality >= 4 for s in recent_sessions):
+            revision.is_mastered = True
+            messages.success(request, f'Excellent! {revision.topic} is now marked as mastered!')
+        else:
+            messages.success(request, f'Review recorded! Next review in {new_interval} days.')
+        
+        revision.save()
+        return redirect('smart_revision_dashboard')
+    
+    # Get mastery info
+    sessions = list(revision.sessions.values())
+    mastery_info = SpacedRepetitionEngine.estimate_mastery_level(sessions)
+    
+    context = {
+        'revision': revision,
+        'mastery_info': mastery_info,
+    }
+    return render(request, 'visionapp/examprep/review_topic.html', context)
+
+
+@login_required(login_url='/signin/')
+def exam_pattern_analysis(request):
+    """Detailed exam pattern analysis and predictions."""
+    user = request.user
+    
+    questions = PreviousExamQuestion.objects.filter(user=user)
+    questions_data = list(questions.values())
+    
+    # Get pattern report
+    pattern_report = ExamPatternAnalyzer.generate_pattern_report(questions_data)
+    
+    # Get top predictions
+    predictions = ExamPatternAnalyzer.predict_important_topics(questions_data, 15)
+    
+    context = {
+        'pattern_report': pattern_report,
+        'predictions': predictions,
+        'total_questions': questions.count(),
+    }
+    return render(request, 'visionapp/examprep/exam_pattern_analysis.html', context)
+
+
+# ==================== AI DOUBT SOLVER VIEWS ====================
+
+from .models import DoubtSession, DoubtMessage
+from .ai_examprep import DoubtSolverAI
+
+
+@login_required(login_url='/signin/')
+def doubt_solver(request):
+    """AI Doubt Solver - Chat interface for students."""
+    user = request.user
+    
+    # Get active sessions
+    sessions = DoubtSession.objects.filter(user=user, is_active=True).order_by('-updated_at')
+    
+    context = {
+        'sessions': sessions,
+    }
+    return render(request, 'visionapp/examprep/doubt_solver.html', context)
+
+
+@login_required(login_url='/signin/')
+def doubt_chat(request, session_id=None):
+    """Chat interface for doubt solving."""
+    user = request.user
+    
+    if session_id:
+        session = get_object_or_404(DoubtSession, id=session_id, user=user)
+    else:
+        # Create new session
+        session = DoubtSession.objects.create(user=user, title='New Doubt Session')
+        return redirect('doubt_chat', session_id=session.id)
+    
+    if request.method == 'POST':
+        message_text = request.POST.get('message', '')
+        image = request.FILES.get('image')
+        
+        # Save user message
+        user_message = DoubtMessage.objects.create(
+            session=session,
+            message_type='user',
+            text=message_text,
+            image=image
+        )
+        
+        # Process image if uploaded
+        image_analysis = None
+        if image:
+            image_path = user_message.image.path
+            image_analysis = DoubtSolverAI.analyze_question_image(image_path)
+        
+        # Generate AI response
+        question = image_analysis['extracted_text'] if image_analysis else message_text
+        subject = image_analysis['subject'] if image_analysis else DoubtSolverAI._detect_subject(message_text)
+        question_type = image_analysis['question_type'] if image_analysis else DoubtSolverAI._detect_question_type(message_text)
+        
+        # Generate explanation
+        explanation = DoubtSolverAI.generate_explanation(question, question_type, subject)
+        
+        # Add study tips
+        study_tips = DoubtSolverAI.get_study_tips(subject)
+        tips_text = "\n\n### 💡 Study Tips\n" + "\n".join([f"• {tip}" for tip in study_tips[:3]])
+        
+        # Full AI response
+        ai_response = explanation + tips_text
+        
+        # Save AI message
+        DoubtMessage.objects.create(
+            session=session,
+            message_type='ai',
+            text=ai_response
+        )
+        
+        # Update session
+        if not session.title or session.title == 'New Doubt Session':
+            session.title = question[:50] + '...' if len(question) > 50 else question
+        if not session.subject:
+            session.subject = subject
+        session.save()
+        
+        # If AJAX request, return JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'ai_response': ai_response,
+                'subject': subject,
+                'question_type': question_type
+            })
+        
+        return redirect('doubt_chat', session_id=session.id)
+    
+    messages = session.messages.all()
+    
+    context = {
+        'session': session,
+        'messages': messages,
+    }
+    return render(request, 'visionapp/examprep/doubt_chat.html', context)
+
+
+@login_required(login_url='/signin/')
+def delete_doubt_session(request, session_id):
+    """Delete a doubt session."""
+    session = get_object_or_404(DoubtSession, id=session_id, user=request.user)
+    
+    if request.method == 'POST':
+        session.delete()
+        messages.success(request, 'Chat session deleted.')
+        return redirect('doubt_solver')
+    
+    return render(request, 'visionapp/examprep/confirm_delete_doubt.html', {'session': session})
+
+
+# ==================== AUTO NOTES GENERATOR VIEWS ====================
+
+@login_required(login_url='/signin/')
+def auto_notes_generator(request):
+    """Main page for Auto Notes Generator."""
+    notes = GeneratedNotes.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'visionapp/examprep/auto_notes.html', {'notes': notes})
+
+
+@login_required(login_url='/signin/')
+def upload_notes_file(request):
+    """Handle file upload and process it."""
+    if request.method != 'POST':
+        return redirect('auto_notes_generator')
+    
+    if 'file' not in request.FILES:
+        messages.error(request, 'Please select a file to upload.')
+        return redirect('auto_notes_generator')
+    
+    uploaded_file = request.FILES['file']
+    
+    # Determine file type
+    file_name = uploaded_file.name.lower()
+    if file_name.endswith('.pdf'):
+        file_type = 'pdf'
+    elif file_name.endswith('.docx'):
+        file_type = 'docx'
+    elif file_name.endswith('.txt'):
+        file_type = 'txt'
+    elif file_name.endswith(('.png', '.jpg', '.jpeg')):
+        file_type = 'image'
+    else:
+        messages.error(request, 'Unsupported file format. Please upload PDF, DOCX, TXT, or image files.')
+        return redirect('auto_notes_generator')
+    
+    # Create notes entry
+    notes = GeneratedNotes.objects.create(
+        user=request.user,
+        title=request.POST.get('title', file_name),
+        original_file=uploaded_file,
+        file_type=file_type,
+        processing_status='processing'
+    )
+    
+    # Process the file
+    try:
+        from visionapp.ai_examprep import AutoNotesGenerator
+        import traceback
+        
+        # Extract text
+        file_path = notes.original_file.path
+        print(f"Processing file: {file_path}, type: {file_type}")
+        
+        extracted_text = AutoNotesGenerator.extract_text_from_file(file_path, file_type)
+        print(f"Extracted text length: {len(extracted_text) if extracted_text else 0}")
+        
+        if not extracted_text:
+            notes.processing_status = 'failed'
+            notes.save()
+            messages.error(request, 'Could not extract text from the file. The file might be empty, corrupted, or in an unsupported format.')
+            return redirect('auto_notes_generator')
+        
+        # Clean and store extracted text
+        cleaned_text = AutoNotesGenerator.clean_text(extracted_text)
+        notes.extracted_text = cleaned_text[:10000]  # Limit stored text
+        
+        # Generate short notes
+        notes_data = AutoNotesGenerator.generate_short_notes(cleaned_text)
+        notes.short_notes = notes_data.get('summary', '')
+        notes.key_points = notes_data.get('key_points', [])
+        notes.important_definitions = notes_data.get('definitions', [])
+        notes.formulas = notes_data.get('formulas', [])
+        
+        # Generate mind map
+        mind_map_data = AutoNotesGenerator.generate_mind_map(extracted_text, notes_data)
+        notes.mind_map_data = mind_map_data
+        
+        # Generate SVG
+        mind_map_svg = AutoNotesGenerator.generate_mind_map_svg(mind_map_data)
+        notes.mind_map_svg = mind_map_svg
+        
+        notes.processing_status = 'completed'
+        notes.save()
+        
+        messages.success(request, 'Notes generated successfully!')
+        return redirect('view_generated_notes', notes_id=notes.id)
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error processing file: {str(e)}")
+        print(f"Traceback: {error_details}")
+        notes.processing_status = 'failed'
+        notes.save()
+        messages.error(request, f'Error processing file: {str(e)}')
+        return redirect('auto_notes_generator')
+
+
+@login_required(login_url='/signin/')
+def view_generated_notes(request, notes_id):
+    """View generated notes and mind map."""
+    notes = get_object_or_404(GeneratedNotes, id=notes_id, user=request.user)
+    return render(request, 'visionapp/examprep/view_notes.html', {'notes': notes})
+
+
+@login_required(login_url='/signin/')
+def delete_generated_notes(request, notes_id):
+    """Delete generated notes."""
+    notes = get_object_or_404(GeneratedNotes, id=notes_id, user=request.user)
+    
+    if request.method == 'POST':
+        notes.delete()
+        messages.success(request, 'Notes deleted.')
+        return redirect('auto_notes_generator')
+    
+    return render(request, 'visionapp/examprep/confirm_delete_notes.html', {'notes': notes})
 
